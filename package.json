@@ -1,6 +1,6 @@
 {
   "name": "unsane",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "description": "A tiny, zero-dependency, run-anywhere HTML sanitization library written in TypeScript.",
   "type": "module",
   "main": "./dist/index.cjs",
