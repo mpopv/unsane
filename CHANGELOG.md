@@ -7,8 +7,9 @@
 - Combined parsing and sanitization into a single-pass implementation
 - Eliminated intermediate token structures
 - Simplified doctype and comment handling for smaller code size
-- Minified size reduced from ~15.78KB to ~3.14KB (80% reduction)
-- Gzipped size reduced from ~3.96KB to ~1.32KB (67% reduction)
+- Unified encode/decode functions and removed code duplication
+- Minified size reduced from ~15.78KB to ~3.1KB (80% reduction)
+- Gzipped size reduced from ~3.96KB to ~1.31KB (67% reduction)
 
 ### Security Improvements
 - Improved script tag handling for better XSS protection

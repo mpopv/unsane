@@ -99,9 +99,9 @@ This library is designed to be lightweight while providing comprehensive HTML sa
 
 | Metric                 | Size      |
 | ---------------------- | --------- |
-| Unpacked               | ~15.77 KB |
-| Minified               | ~3.14 KB |
-| **Minified + Gzipped** | **~1.32 KB** |
+| Unpacked               | ~15.69 KB |
+| Minified               | ~3.1 KB |
+| **Minified + Gzipped** | **~1.31 KB** |
 
 You can check the package size yourself with:
 
