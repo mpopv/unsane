@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { decode, encode, escape } from "../src/utils/htmlEntities";
+import { decode, encode, escape } from "../src/unsane";
 
 describe("htmlEntities", () => {
   describe("decode", () => {
