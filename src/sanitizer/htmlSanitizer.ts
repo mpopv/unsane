@@ -238,38 +238,12 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
           isClosingTag = true;
           state = STATE.TAG_NAME;
         } else if (char === '!') {
-          // Check if this is a comment, and if so, handle special cases
-          if (html.slice(position, position + 3) === '!--') {
-            // This is a HTML comment
-            
-            // Special handling for conditional comments which might contain script tags
-            if (html.slice(position + 3).indexOf('[if') !== -1) {
-              // Find the end of the comment
-              const commentEnd = html.indexOf('-->', position);
-              if (commentEnd !== -1) {
-                position = commentEnd + 2; // Will be incremented at end of loop
-              } else {
-                position = html.length - 1;
-              }
-              state = STATE.TEXT;
-              continue;
-            }
-            
-            // Regular comment - find closing '-->' tag and skip
-            const commentEnd = html.indexOf('-->', position);
-            if (commentEnd !== -1) {
-              position = commentEnd + 2; // Will be incremented at end of loop
-            } else {
-              position = html.length - 1;
-            }
+          // Simple handling for comments and doctypes - skip everything until the next '>'
+          const gtIndex = html.indexOf('>', position);
+          if (gtIndex !== -1) {
+            position = gtIndex; // Will be incremented at end of loop
           } else {
-            // Handle doctype - find closing '>' and skip
-            const gtIndex = html.indexOf('>', position);
-            if (gtIndex !== -1) {
-              position = gtIndex; // Will be incremented at end of loop
-            } else {
-              position = html.length - 1;
-            }
+            position = html.length - 1;
           }
           state = STATE.TEXT;
         } else if (/[a-zA-Z]/.test(char)) {
