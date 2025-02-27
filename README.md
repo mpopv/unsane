@@ -1,3 +1,5 @@
+![Unsane logo](https://github.com/user-attachments/assets/ee83110e-82c1-4514-a8e9-da946096bab9)
+
 # Unsane
 
 A tiny, zero-dependency, run-anywhere HTML sanitization library written in TypeScript.
