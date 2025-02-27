@@ -247,25 +247,25 @@ var TokenizerState;
     TokenizerState[TokenizerState["RAWTEXT"] = 26] = "RAWTEXT";
 })(TokenizerState || (TokenizerState = {}));
 // Tags that trigger raw-text mode
-const RAWTEXT_TAGS = new Set(['script', 'style']);
+const RAWTEXT_TAGS = new Set(["script", "style"]);
 /**
  * HTML Tokenizer - A state machine for tokenizing HTML
  */
 class HtmlTokenizer {
     constructor() {
         this.state = TokenizerState.DATA;
-        this.buffer = '';
+        this.buffer = "";
         this.position = 0; // read index
         this.tokens = [];
         // Temporary accumulators for building up tokens
         this.currentToken = {};
         this.currentAttr = null;
         // For storing raw text if we're in <script> or <style> until we see the closing tag
-        this.rawTextTagName = '';
-        this.rawTextBuffer = '';
+        this.rawTextTagName = "";
+        this.rawTextBuffer = "";
         // For doctype token
-        this.docPublicId = '';
-        this.docSystemId = '';
+        this.docPublicId = "";
+        this.docSystemId = "";
         this.isEndOfChunk = false;
     }
     write(chunk) {
@@ -278,7 +278,8 @@ class HtmlTokenizer {
         // finalize
         this.run();
         // flush any pending text if needed
-        if (this.state === TokenizerState.DATA && this.currentToken.type === 'text') {
+        if (this.state === TokenizerState.DATA &&
+            this.currentToken.type === "text") {
             this.emitCurrentText();
         }
     }
@@ -355,7 +356,7 @@ class HtmlTokenizer {
         this.position--;
     }
     peekNext() {
-        return this.buffer[this.position + 1] || '';
+        return this.buffer[this.position + 1] || "";
     }
     // ---- Emission ----
     emitToken(token) {
@@ -364,22 +365,22 @@ class HtmlTokenizer {
     emitText(text) {
         if (!text)
             return;
-        this.emitToken({ type: 'text', text, raw: text });
+        this.emitToken({ type: "text", text, raw: text });
     }
     emitCurrentText() {
-        if (this.currentToken.type === 'text') {
+        if (this.currentToken.type === "text") {
             const t = this.currentToken;
             if (t.text) {
-                this.emitToken({ type: 'text', text: t.text, raw: t.raw });
+                this.emitToken({ type: "text", text: t.text, raw: t.raw });
             }
         }
         this.currentToken = {};
     }
     // ---- State handlers ----
     dataState(char) {
-        if (char === '<') {
+        if (char === "<") {
             // flush any pending text
-            if (this.currentToken.type === 'text') {
+            if (this.currentToken.type === "text") {
                 this.emitCurrentText();
             }
             this.state = TokenizerState.TAG_OPEN;
@@ -387,45 +388,47 @@ class HtmlTokenizer {
             return;
         }
         // else accumulate text
-        if (this.currentToken.type !== 'text') {
+        if (this.currentToken.type !== "text") {
             // start fresh
-            this.currentToken = { type: 'text', text: '', raw: '' };
+            this.currentToken = { type: "text", text: "", raw: "" };
         }
         const t = this.currentToken;
         t.text += char;
-        t.raw = (t.raw || '') + char;
+        t.raw = (t.raw || "") + char;
     }
     tagOpenState(char) {
-        if (char === '/') {
+        if (char === "/") {
             this.state = TokenizerState.END_TAG_OPEN;
             this.currentToken = {};
             return;
         }
-        if (char === '!') {
+        if (char === "!") {
             // check if it's a comment or doctype
-            const ahead = this.buffer.slice(this.position + 1, this.position + 3).toLowerCase();
-            if (ahead.startsWith('--')) {
+            const ahead = this.buffer
+                .slice(this.position + 1, this.position + 3)
+                .toLowerCase();
+            if (ahead.startsWith("--")) {
                 // comment
                 this.state = TokenizerState.COMMENT_START;
                 this.position += 2; // skip over '--'
-                this.currentToken = { type: 'comment', text: '', raw: '<!--' };
+                this.currentToken = { type: "comment", text: "", raw: "<!--" };
             }
-            else if (ahead.startsWith('do')) {
+            else if (ahead.startsWith("do")) {
                 // doctype
                 this.state = TokenizerState.DOCTYPE;
                 this.currentToken = {
-                    type: 'doctype',
-                    name: '',
-                    publicId: '',
-                    systemId: '',
-                    raw: '<!doctype',
+                    type: "doctype",
+                    name: "",
+                    publicId: "",
+                    systemId: "",
+                    raw: "<!doctype",
                 };
                 this.position += 7; // we skip "doctype"
             }
             else {
                 // could be a bogus comment like <!abc
                 this.state = TokenizerState.COMMENT_START;
-                this.currentToken = { type: 'comment', text: '', raw: '<!' };
+                this.currentToken = { type: "comment", text: "", raw: "<!" };
             }
             return;
         }
@@ -433,49 +436,49 @@ class HtmlTokenizer {
             // start tag
             this.state = TokenizerState.TAG_NAME;
             this.currentToken = {
-                type: 'startTag',
+                type: "startTag",
                 tagName: char.toLowerCase(),
                 attrs: [],
                 selfClosing: false,
-                raw: '<' + char,
+                raw: "<" + char,
             };
             return;
         }
-        if (char === '?') {
+        if (char === "?") {
             // e.g. <? xml ... bogus comment
             this.state = TokenizerState.COMMENT_START;
-            this.currentToken = { type: 'comment', text: '', raw: '<?' };
+            this.currentToken = { type: "comment", text: "", raw: "<?" };
             return;
         }
         // else it might be text, fallback
         // < followed by something else => text
         // We re-emit a text node with < char
         this.state = TokenizerState.DATA;
-        this.emitText('<');
+        this.emitText("<");
         this.reconsume();
     }
     endTagOpenState(char) {
         if (/[a-zA-Z]/.test(char)) {
             this.state = TokenizerState.END_TAG_NAME;
             this.currentToken = {
-                type: 'endTag',
+                type: "endTag",
                 tagName: char.toLowerCase(),
-                raw: '</' + char,
+                raw: "</" + char,
             };
             return;
         }
         // maybe an end tag slash something?
-        if (char === '>') {
+        if (char === ">") {
             // `</>` => text
             this.state = TokenizerState.DATA;
             // we treat it as text?
-            this.emitText('</>');
+            this.emitText("</>");
             return;
         }
         // might be comment or something
         // fallback
         this.state = TokenizerState.COMMENT_START;
-        this.currentToken = { type: 'comment', text: '', raw: '</!' };
+        this.currentToken = { type: "comment", text: "", raw: "</!" };
         this.reconsume();
     }
     tagNameState(char) {
@@ -485,11 +488,11 @@ class HtmlTokenizer {
             this.state = TokenizerState.BEFORE_ATTRIBUTE_NAME;
             return;
         }
-        if (char === '>') {
+        if (char === ">") {
             this.finishStartTag(token);
             return;
         }
-        if (char === '/') {
+        if (char === "/") {
             this.state = TokenizerState.SELF_CLOSING_START_TAG;
             return;
         }
@@ -502,14 +505,15 @@ class HtmlTokenizer {
             // ignore whitespace
             return;
         }
-        if (char === '>') {
+        if (char === ">") {
             // done
             token.tagName = token.tagName.toLowerCase();
             this.emitToken(token);
-            if (RAWTEXT_TAGS.has(token.tagName) && token.tagName === this.rawTextTagName) {
+            if (RAWTEXT_TAGS.has(token.tagName) &&
+                token.tagName === this.rawTextTagName) {
                 // we might exit rawtext
-                this.rawTextTagName = '';
-                this.rawTextBuffer = '';
+                this.rawTextTagName = "";
+                this.rawTextBuffer = "";
                 this.state = TokenizerState.DATA;
             }
             else {
@@ -528,16 +532,16 @@ class HtmlTokenizer {
             // skip
             return;
         }
-        if (char === '>') {
+        if (char === ">") {
             this.finishStartTag(token);
             return;
         }
-        if (char === '/') {
+        if (char === "/") {
             this.state = TokenizerState.SELF_CLOSING_START_TAG;
             return;
         }
         // start new attribute
-        this.currentAttr = { name: '', value: '' };
+        this.currentAttr = { name: "", value: "" };
         token.attrs.push(this.currentAttr);
         this.state = TokenizerState.ATTRIBUTE_NAME;
         this.currentAttr.name += char.toLowerCase();
@@ -549,15 +553,15 @@ class HtmlTokenizer {
             this.state = TokenizerState.AFTER_ATTRIBUTE_NAME;
             return;
         }
-        if (char === '=') {
+        if (char === "=") {
             this.state = TokenizerState.BEFORE_ATTRIBUTE_VALUE;
             return;
         }
-        if (char === '>') {
+        if (char === ">") {
             this.finishStartTag(token);
             return;
         }
-        if (char === '/') {
+        if (char === "/") {
             this.state = TokenizerState.SELF_CLOSING_START_TAG;
             return;
         }
@@ -569,20 +573,20 @@ class HtmlTokenizer {
         if (/\s/.test(char)) {
             return;
         }
-        if (char === '=') {
+        if (char === "=") {
             this.state = TokenizerState.BEFORE_ATTRIBUTE_VALUE;
             return;
         }
-        if (char === '>') {
+        if (char === ">") {
             this.finishStartTag(token);
             return;
         }
-        if (char === '/') {
+        if (char === "/") {
             this.state = TokenizerState.SELF_CLOSING_START_TAG;
             return;
         }
         // new attribute
-        this.currentAttr = { name: '', value: '' };
+        this.currentAttr = { name: "", value: "" };
         token.attrs.push(this.currentAttr);
         this.state = TokenizerState.ATTRIBUTE_NAME;
         this.currentAttr.name += char.toLowerCase();
@@ -601,11 +605,11 @@ class HtmlTokenizer {
             this.state = TokenizerState.ATTRIBUTE_VALUE_SINGLE;
             return;
         }
-        if (char === '>') {
+        if (char === ">") {
             this.finishStartTag(token);
             return;
         }
-        if (char === '/') {
+        if (char === "/") {
             this.state = TokenizerState.SELF_CLOSING_START_TAG;
             return;
         }
@@ -623,15 +627,16 @@ class HtmlTokenizer {
             this.state = TokenizerState.BEFORE_ATTRIBUTE_NAME;
             return;
         }
-        if (/\s/.test(char) && avState === TokenizerState.ATTRIBUTE_VALUE_UNQUOTED) {
+        if (/\s/.test(char) &&
+            avState === TokenizerState.ATTRIBUTE_VALUE_UNQUOTED) {
             this.state = TokenizerState.BEFORE_ATTRIBUTE_NAME;
             return;
         }
-        if (char === '>' && avState === TokenizerState.ATTRIBUTE_VALUE_UNQUOTED) {
+        if (char === ">" && avState === TokenizerState.ATTRIBUTE_VALUE_UNQUOTED) {
             this.finishStartTag(token);
             return;
         }
-        if (char === '/' && avState === TokenizerState.ATTRIBUTE_VALUE_UNQUOTED) {
+        if (char === "/" && avState === TokenizerState.ATTRIBUTE_VALUE_UNQUOTED) {
             this.state = TokenizerState.SELF_CLOSING_START_TAG;
             return;
         }
@@ -640,7 +645,7 @@ class HtmlTokenizer {
     selfClosingStartTagState(char) {
         const token = this.currentToken;
         token.raw += char;
-        if (char === '>') {
+        if (char === ">") {
             token.selfClosing = true;
             this.finishStartTag(token);
             return;
@@ -656,7 +661,7 @@ class HtmlTokenizer {
         // if script or style, we go raw
         if (RAWTEXT_TAGS.has(lower) && !token.selfClosing) {
             this.rawTextTagName = lower;
-            this.rawTextBuffer = '';
+            this.rawTextBuffer = "";
             this.state = TokenizerState.RAWTEXT;
         }
         else {
@@ -671,13 +676,13 @@ class HtmlTokenizer {
         ctoken.raw += char;
         switch (this.state) {
             case TokenizerState.COMMENT_START: {
-                if (char === '-') {
+                if (char === "-") {
                     // we might move to COMMENT
                     // but we are already in comment start
                     this.state = TokenizerState.COMMENT;
                     return;
                 }
-                if (char === '>') {
+                if (char === ">") {
                     // end comment?
                     this.finishComment();
                     return;
@@ -688,7 +693,7 @@ class HtmlTokenizer {
                 return;
             }
             case TokenizerState.COMMENT: {
-                if (char === '-') {
+                if (char === "-") {
                     this.state = TokenizerState.COMMENT_END;
                     return;
                 }
@@ -696,26 +701,26 @@ class HtmlTokenizer {
                 return;
             }
             case TokenizerState.COMMENT_END: {
-                if (char === '-') {
-                    ctoken.text += '-';
+                if (char === "-") {
+                    ctoken.text += "-";
                     // still in comment end
                     return;
                 }
-                if (char === '>') {
+                if (char === ">") {
                     // finish
                     this.finishComment();
                     return;
                 }
                 // else revert to comment
                 this.state = TokenizerState.COMMENT;
-                ctoken.text += '-' + char;
+                ctoken.text += "-" + char;
             }
         }
     }
     finishComment() {
         const ctoken = this.currentToken;
         this.emitToken({
-            type: 'comment',
+            type: "comment",
             text: ctoken.text,
             raw: ctoken.raw,
         });
@@ -730,7 +735,7 @@ class HtmlTokenizer {
                 if (/\s/.test(char)) {
                     this.state = TokenizerState.DOCTYPE_BEFORE_NAME;
                 }
-                else if (char === '>') {
+                else if (char === ">") {
                     // done
                     this.finishDoctype();
                 }
@@ -745,7 +750,7 @@ class HtmlTokenizer {
                 if (/\s/.test(char)) {
                     // skip
                 }
-                else if (char === '>') {
+                else if (char === ">") {
                     this.finishDoctype();
                 }
                 else {
@@ -758,7 +763,7 @@ class HtmlTokenizer {
                 if (/\s/.test(char)) {
                     this.state = TokenizerState.DOCTYPE_AFTER_NAME;
                 }
-                else if (char === '>') {
+                else if (char === ">") {
                     this.finishDoctype();
                 }
                 else {
@@ -770,7 +775,7 @@ class HtmlTokenizer {
                 if (/\s/.test(char)) {
                     // skip
                 }
-                else if (char === '>') {
+                else if (char === ">") {
                     this.finishDoctype();
                 }
                 else if (/^(public|system)/i.test(this.buffer.slice(this.position))) {
@@ -792,7 +797,7 @@ class HtmlTokenizer {
                 else if (char === "'") {
                     this.state = TokenizerState.DOCTYPE_PUBLIC_ID_SINGLE_QUOTED;
                 }
-                else if (char === '>') {
+                else if (char === ">") {
                     this.finishDoctype();
                 }
                 break;
@@ -801,11 +806,11 @@ class HtmlTokenizer {
                 if (char === "'") {
                     // done public id
                     dt.publicId = this.docPublicId;
-                    this.docPublicId = '';
+                    this.docPublicId = "";
                     // next might be system
                     this.state = TokenizerState.DOCTYPE_BOGUS;
                 }
-                else if (char === '>') {
+                else if (char === ">") {
                     dt.publicId = this.docPublicId;
                     this.finishDoctype();
                 }
@@ -817,10 +822,10 @@ class HtmlTokenizer {
             case TokenizerState.DOCTYPE_PUBLIC_ID_DOUBLE_QUOTED: {
                 if (char === '"') {
                     dt.publicId = this.docPublicId;
-                    this.docPublicId = '';
+                    this.docPublicId = "";
                     this.state = TokenizerState.DOCTYPE_BOGUS; // minimal
                 }
-                else if (char === '>') {
+                else if (char === ">") {
                     dt.publicId = this.docPublicId;
                     this.finishDoctype();
                 }
@@ -832,10 +837,10 @@ class HtmlTokenizer {
             case TokenizerState.DOCTYPE_SYSTEM_ID_SINGLE_QUOTED: {
                 if (char === "'") {
                     dt.systemId = this.docSystemId;
-                    this.docSystemId = '';
+                    this.docSystemId = "";
                     this.state = TokenizerState.DOCTYPE_BOGUS;
                 }
-                else if (char === '>') {
+                else if (char === ">") {
                     dt.systemId = this.docSystemId;
                     this.finishDoctype();
                 }
@@ -847,10 +852,10 @@ class HtmlTokenizer {
             case TokenizerState.DOCTYPE_SYSTEM_ID_DOUBLE_QUOTED: {
                 if (char === '"') {
                     dt.systemId = this.docSystemId;
-                    this.docSystemId = '';
+                    this.docSystemId = "";
                     this.state = TokenizerState.DOCTYPE_BOGUS;
                 }
-                else if (char === '>') {
+                else if (char === ">") {
                     dt.systemId = this.docSystemId;
                     this.finishDoctype();
                 }
@@ -860,7 +865,7 @@ class HtmlTokenizer {
                 break;
             }
             case TokenizerState.DOCTYPE_BOGUS: {
-                if (char === '>') {
+                if (char === ">") {
                     this.finishDoctype();
                 }
                 break;
@@ -875,27 +880,27 @@ class HtmlTokenizer {
             dt.systemId = this.docSystemId;
         this.emitToken(dt);
         this.currentToken = {};
-        this.docPublicId = '';
-        this.docSystemId = '';
+        this.docPublicId = "";
+        this.docSystemId = "";
         this.state = TokenizerState.DATA;
     }
     rawtextState(char) {
         // accumulate raw text until we see `</script>` or `</style>` etc.
         // naive approach: if we see `</`, check if it matches the rawTextTagName
         this.rawTextBuffer += char;
-        if (char === '<') {
+        if (char === "<") {
             // look ahead if it's `</tagName`
             const possibleClose = this.buffer
                 .slice(this.position + 1, this.position + 1 + this.rawTextTagName.length + 1)
                 .toLowerCase();
-            if (possibleClose === '/' + this.rawTextTagName) {
+            if (possibleClose === "/" + this.rawTextTagName) {
                 // flush text token
                 this.emitToken({
-                    type: 'text',
+                    type: "text",
                     text: this.rawTextBuffer.slice(0, -1), // minus the '<'
                     raw: this.rawTextBuffer.slice(0, -1),
                 });
-                this.rawTextBuffer = '<';
+                this.rawTextBuffer = "<";
                 // revert or handle
                 this.state = TokenizerState.END_TAG_OPEN;
                 this.position++;
@@ -915,33 +920,6 @@ function tokenizeHTML(html) {
     return tokenizer.getTokens();
 }
 /**
- * Check if a token is an opening tag
- */
-function isStartTag(token) {
-    return token.type === 'startTag' && !token.selfClosing;
-}
-/**
- * Check if a token is a closing tag
- */
-function isEndTag(token) {
-    return token.type === 'endTag';
-}
-/**
- * Check if a token is self-closing
- */
-function isSelfClosingTag(token) {
-    return token.type === 'startTag' && token.selfClosing;
-}
-/**
- * Get the tag name from a token
- */
-function getTagName(token) {
-    if (token.type === 'startTag' || token.type === 'endTag') {
-        return token.tagName.toLowerCase();
-    }
-    return "";
-}
-/**
  * Process and filter attributes for a tag
  */
 function processAttributes(token, tagName, allowedAttributesMap) {
@@ -954,13 +932,13 @@ function processAttributes(token, tagName, allowedAttributesMap) {
             // Filter potentially dangerous URLs and values
             if ((name === "href" || name === "src") && typeof value === "string") {
                 // Sanitize javascript: and data: URLs
-                const normalized = value.trim().toLowerCase().replace(/\s+/g, '');
+                const normalized = value.trim().toLowerCase().replace(/\s+/g, "");
                 if (normalized.startsWith("javascript:") ||
                     normalized.startsWith("data:") ||
                     normalized.includes("\\u0000") ||
                     normalized.includes("\0") ||
-                    normalized.match(/[\u0000-\u001F]/) // Control characters
-                ) {
+                    // Check for control characters without using regex
+                    normalized.split("").some((char) => char.charCodeAt(0) <= 0x1f)) {
                     continue; // Skip this attribute
                 }
             }
@@ -979,7 +957,9 @@ function processAttributes(token, tagName, allowedAttributesMap) {
                 continue; // Skip this attribute
             }
             // Special handling for attributes with HTML entities
-            if (name === "title" && typeof value === "string" && value.includes("&quot;")) {
+            if (name === "title" &&
+                typeof value === "string" &&
+                value.includes("&quot;")) {
                 // Keep the original entity encoding
                 result += ` ${name}="${value}"`;
             }
@@ -1025,7 +1005,7 @@ function sanitize(html, options) {
     for (const token of tokens) {
         // Skip content in disallowed tags (like script/style)
         if (inSkippedTag) {
-            if (token.type === 'endTag' && token.tagName === skipUntilTag) {
+            if (token.type === "endTag" && token.tagName === skipUntilTag) {
                 inSkippedTag = false;
                 skipUntilTag = "";
             }
@@ -1033,7 +1013,7 @@ function sanitize(html, options) {
         }
         // Process tokens based on type
         switch (token.type) {
-            case 'startTag': {
+            case "startTag": {
                 const tagName = token.tagName;
                 if (mergedOptions.allowedTags.includes(tagName)) {
                     if (!token.selfClosing) {
@@ -1048,7 +1028,8 @@ function sanitize(html, options) {
                             stack.splice(pIndex);
                         }
                         // Handle self-closing elements that are not explicitly self-closed
-                        if (selfClosingTags.includes(tagName) && mergedOptions.selfClosing) {
+                        if (selfClosingTags.includes(tagName) &&
+                            mergedOptions.selfClosing) {
                             const attrs = processAttributes(token, tagName, mergedOptions.allowedAttributes);
                             output += `<${tagName}${attrs} />`;
                         }
@@ -1079,7 +1060,7 @@ function sanitize(html, options) {
                 }
                 break;
             }
-            case 'endTag': {
+            case "endTag": {
                 const tagName = token.tagName;
                 if (mergedOptions.allowedTags.includes(tagName)) {
                     // Find the matching opening tag in the stack
@@ -1095,7 +1076,7 @@ function sanitize(html, options) {
                 }
                 break;
             }
-            case 'text': {
+            case "text": {
                 // Process text content
                 const text = mergedOptions.transformText
                     ? mergedOptions.transformText(token.text)
@@ -1103,9 +1084,12 @@ function sanitize(html, options) {
                 // Only encode non-empty text
                 if (text.trim() || text.includes(" ")) {
                     // Don't decode entities that are already encoded
-                    if (text.includes("&lt;") || text.includes("&gt;") || text.includes("&quot;") || text.includes("&amp;")) {
+                    if (text.includes("&lt;") ||
+                        text.includes("&gt;") ||
+                        text.includes("&quot;") ||
+                        text.includes("&amp;")) {
                         // Check for potential nested script content
-                        const safeText = text.replace(/javascript|script|alert|onerror|onclick/ig, match => encode(match, { useNamedReferences: true }));
+                        const safeText = text.replace(/javascript|script|alert|onerror|onclick/gi, (match) => encode(match, { useNamedReferences: true }));
                         output += safeText;
                     }
                     else {
@@ -1121,10 +1105,10 @@ function sanitize(html, options) {
                 }
                 break;
             }
-            case 'comment':
+            case "comment":
                 // Skip comments - they are unsafe in HTML
                 break;
-            case 'doctype':
+            case "doctype":
                 // Skip doctype - not needed for sanitized content
                 break;
         }
