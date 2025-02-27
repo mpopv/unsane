@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.0.8 (2025-02-26)
+
+### Performance Improvements
+- Drastically reduced bundle size by inlining tokenizer logic
+- Combined parsing and sanitization into a single-pass implementation
+- Eliminated intermediate token structures
+- Minified size reduced from ~15.78KB to ~3.29KB (79% reduction)
+- Gzipped size reduced from ~3.96KB to ~1.36KB (66% reduction)
+
 ## 0.0.7 (2025-02-26)
 
 ### Bug Fixes

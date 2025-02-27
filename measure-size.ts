@@ -11,7 +11,7 @@ const gzip = promisify(zlib.gzip);
 // Only analyze files that a client would import
 const clientImportPaths = [
   "dist/src/index.js",
-  "dist/src/unsane.js"
+  "dist/src/sanitizer/htmlSanitizer.js"
 ];
 
 interface FileDetail {
@@ -104,7 +104,7 @@ async function analyzeClientImports(): Promise<void> {
         const gzipSize = gzipContent.length;
         const isMinified = file.includes(".min.js");
 
-        if (file.includes("unsane.js")) {
+        if (file.includes("htmlSanitizer.js")) {
           standardSize = size;
 
           // Minify the standard version
