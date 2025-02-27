@@ -353,6 +353,4 @@ export function tokenizeHTML(html: string): HtmlToken[] {
   return tokens;
 }
 
-export default {
-  tokenizeHTML
-};
+// No default export

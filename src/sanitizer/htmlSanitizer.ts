@@ -1,18 +1,21 @@
 /**
  * HTML Sanitizer - Removes dangerous content from HTML
- * 
+ *
  * Uses an inline tokenizer to parse HTML and rebuild it safely in a single pass
  */
 
 import { VOID_ELEMENTS, isDangerousAttribute } from "../tokenizer/types";
 import { DEFAULT_OPTIONS } from "./config";
 import { SanitizerOptions } from "../types";
-import { encode, decode, escape } from "../utils/htmlEntities";
-import { containsDangerousContent, sanitizeTextContent } from "../utils/securityUtils";
+import { encode, decode } from "../utils/htmlEntities";
+import {
+  containsDangerousContent,
+  sanitizeTextContent,
+} from "../utils/securityUtils";
 
 /**
  * Process and filter attributes for a tag, removing any dangerous attributes
- * 
+ *
  * @param attrs Array of attributes as [name, value] pairs
  * @param tagName The tag name
  * @param allowedAttributesMap Map of tag names to allowed attributes
@@ -25,13 +28,13 @@ function processAttributes(
 ): string {
   // Get tag-specific allowed attributes
   const tagAllowedAttrs = allowedAttributesMap[tagName] || [];
-  
+
   // Get global attributes (allowed for all tags)
   const globalAttrs = allowedAttributesMap["*"] || [];
-  
+
   // Combine the two lists
   const allowedAttrs = [...tagAllowedAttrs, ...globalAttrs];
-  
+
   let result = "";
 
   // Process each attribute
@@ -42,26 +45,36 @@ function processAttributes(
     if (!allowedAttrs.includes(lowerName) || isDangerousAttribute(lowerName)) {
       continue;
     }
-    
+
     // Always remove event handlers and style attributes - they're too risky
-    if (lowerName.startsWith('on') || lowerName === 'style') {
+    if (lowerName.startsWith("on") || lowerName === "style") {
       continue;
     }
 
     // Filter attributes with dangerous URLs or values
     if (value && containsDangerousContent(value)) {
       // Remove the attribute completely for href/src/etc.
-      if (lowerName === "href" || lowerName === "src" || lowerName === "action" || 
-          lowerName === "formaction" || lowerName === "xlink:href") {
+      if (
+        lowerName === "href" ||
+        lowerName === "src" ||
+        lowerName === "action" ||
+        lowerName === "formaction" ||
+        lowerName === "xlink:href"
+      ) {
         continue;
       }
-      
+
       // For other attributes, try to sanitize the value
       // but remove any that still look suspicious
-      if (value.toLowerCase().includes("javascript") || 
-          value.toLowerCase().includes("script") ||
-          value.toLowerCase().includes("alert") ||
-          value.match(/[\u0000-\u001F\u200C-\u200F]/)) {
+      if (
+        value.toLowerCase().includes("javascript") ||
+        value.toLowerCase().includes("script") ||
+        value.toLowerCase().includes("alert") ||
+        value.split("").some((char) => {
+          const code = char.charCodeAt(0);
+          return code <= 0x1f || (code >= 0x200c && code <= 0x200f);
+        })
+      ) {
         continue;
       }
     }
@@ -79,7 +92,7 @@ function processAttributes(
 
 /**
  * Main sanitizer function - takes HTML and returns sanitized HTML
- * 
+ *
  * @param html HTML string to sanitize
  * @param options Optional sanitizer configuration
  * @returns Sanitized HTML string
@@ -87,17 +100,17 @@ function processAttributes(
 export function sanitize(html: string, options?: SanitizerOptions): string {
   // Merge default options with user options
   const mergedOptions = { ...DEFAULT_OPTIONS, ...options };
-  
+
   // Stack for tracking open tags
   const stack: string[] = [];
-  
+
   // Output buffer
   let output = "";
-  
+
   // Parse state management
   let position = 0;
-  let textBuffer = '';
-  
+  let textBuffer = "";
+
   // A simple state machine for parsing
   const STATE = {
     TEXT: 0,
@@ -106,62 +119,72 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
     TAG_END: 3,
     ATTR_NAME: 4,
     ATTR_VALUE_START: 5,
-    ATTR_VALUE: 6
+    ATTR_VALUE: 6,
   };
-  
+
   let state = STATE.TEXT;
-  let tagNameBuffer = '';
-  let attrNameBuffer = '';
-  let attrValueBuffer = '';
+  let tagNameBuffer = "";
+  let attrNameBuffer = "";
+  let attrValueBuffer = "";
   let isClosingTag = false;
-  let inQuote = '';
+  let inQuote = "";
   let currentAttrs: Array<[string, string]> = [];
   let isSelfClosing = false;
-  
+
   // Helper function to emit text
   function emitText() {
     if (textBuffer) {
       // Apply custom text transformation if provided
-      const text = mergedOptions.transformText 
-        ? mergedOptions.transformText(textBuffer) 
+      const text = mergedOptions.transformText
+        ? mergedOptions.transformText(textBuffer)
         : textBuffer;
-      
+
       // Only process non-empty text
       if (text.trim() || text.includes(" ")) {
         // Remove any control characters directly
-        const cleanText = text.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
-        
+        const cleanText = text
+          .split("")
+          .filter((char) => {
+            const code = char.charCodeAt(0);
+            return !(code <= 0x1f || (code >= 0x7f && code <= 0x9f));
+          })
+          .join("");
+
         // Decode any entities, then sanitize and re-encode
         // This handles both regular text and text with entities in one path
         const decoded = decode(cleanText);
         output += sanitizeTextContent(decoded, encode);
       }
-      
-      textBuffer = '';
+
+      textBuffer = "";
     }
   }
-  
+
   // Function to handle a start tag
-  function handleStartTag(tagName: string, attrs: Array<[string, string]>, selfClosing: boolean) {
+  function handleStartTag(
+    tagName: string,
+    attrs: Array<[string, string]>,
+    selfClosing: boolean
+  ) {
     // Skip any script tags entirely for security
-    if (tagName === 'script') {
+    if (tagName === "script") {
       return;
     }
-    
+
     if (mergedOptions.allowedTags.includes(tagName)) {
       // Special handling for HTML structure - div inside p is invalid HTML
       if (tagName === "div" && stack.includes("p")) {
         const pIndex = stack.lastIndexOf("p");
-        
+
         // Close all tags up to and including the p tag
         for (let i = stack.length - 1; i >= pIndex; i--) {
           output += `</${stack[i]}>`;
         }
-        
+
         // Remove closed tags from stack
         stack.splice(pIndex);
       }
-      
+
       // Handle void elements and self-closing tags
       if (VOID_ELEMENTS.includes(tagName) || selfClosing) {
         const attrsStr = processAttributes(
@@ -169,7 +192,7 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
           tagName,
           mergedOptions.allowedAttributes
         );
-        
+
         // Use self-closing format if configured
         if (mergedOptions.selfClosing) {
           output += `<${tagName}${attrsStr} />`;
@@ -188,55 +211,58 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
       }
     }
   }
-  
+
   // Function to handle an end tag
   function handleEndTag(tagName: string) {
-    if (mergedOptions.allowedTags.includes(tagName) && !VOID_ELEMENTS.includes(tagName)) {
+    if (
+      mergedOptions.allowedTags.includes(tagName) &&
+      !VOID_ELEMENTS.includes(tagName)
+    ) {
       // Find the matching opening tag in the stack
       const index = stack.lastIndexOf(tagName);
-      
+
       if (index >= 0) {
         // Close all nested tags properly
         for (let i = stack.length - 1; i >= index; i--) {
           output += `</${stack[i]}>`;
         }
-        
+
         // Remove closed tags from stack
         stack.splice(index);
       }
     }
   }
-  
+
   // Main parsing loop
   while (position < html.length) {
     const char = html[position];
-    
+
     switch (state) {
       case STATE.TEXT:
-        if (char === '<') {
+        if (char === "<") {
           emitText();
-          
+
           // Special handling for double <<, which could be malformed HTML used for XSS
-          if (html[position + 1] === '<') {
+          if (html[position + 1] === "<") {
             // Skip the second < and emit it as text
-            textBuffer = '<';
+            textBuffer = "<";
             emitText();
             position++; // Skip the second <
           }
-          
+
           state = STATE.TAG_START;
         } else {
           textBuffer += char;
         }
         break;
-        
+
       case STATE.TAG_START:
-        if (char === '/') {
+        if (char === "/") {
           isClosingTag = true;
           state = STATE.TAG_NAME;
-        } else if (char === '!') {
+        } else if (char === "!") {
           // Simple handling for comments and doctypes - skip everything until the next '>'
-          const gtIndex = html.indexOf('>', position);
+          const gtIndex = html.indexOf(">", position);
           if (gtIndex !== -1) {
             position = gtIndex; // Will be incremented at end of loop
           } else {
@@ -245,122 +271,126 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
           state = STATE.TEXT;
         } else if (/[a-zA-Z]/.test(char)) {
           tagNameBuffer = char.toLowerCase();
-          
+
           // Special handling for script tags - they should be skipped entirely
-          if (!isClosingTag && tagNameBuffer === 's' && html.slice(position, position + 6).toLowerCase() === 'script') {
+          if (
+            !isClosingTag &&
+            tagNameBuffer === "s" &&
+            html.slice(position, position + 6).toLowerCase() === "script"
+          ) {
             // Find position of tag closing
             let endPos = position;
-            while (endPos < html.length && html[endPos] !== '>') {
+            while (endPos < html.length && html[endPos] !== ">") {
               endPos++;
             }
-            
+
             if (endPos < html.length) {
               // Skip to the closing script tag
-              const scriptEnd = html.indexOf('</script>', endPos);
+              const scriptEnd = html.indexOf("</script>", endPos);
               if (scriptEnd !== -1) {
                 position = scriptEnd + 8; // Move past </script>
               } else {
-                position = html.length; 
+                position = html.length;
               }
               // Resume parsing without emitting any script content
               state = STATE.TEXT;
               continue;
             }
           }
-          
+
           state = STATE.TAG_NAME;
           currentAttrs = [];
           isSelfClosing = false;
         } else {
           // Not a valid tag, revert to text
-          textBuffer += '<' + char;
+          textBuffer += "<" + char;
           state = STATE.TEXT;
         }
         break;
-        
+
       case STATE.TAG_NAME:
         if (/[a-zA-Z0-9\-_]/.test(char)) {
           tagNameBuffer += char.toLowerCase();
         } else if (/\s/.test(char)) {
           state = STATE.ATTR_NAME;
-        } else if (char === '>') {
+        } else if (char === ">") {
           if (isClosingTag) {
             handleEndTag(tagNameBuffer);
           } else {
             handleStartTag(tagNameBuffer, currentAttrs, isSelfClosing);
           }
-          
-          tagNameBuffer = '';
+
+          tagNameBuffer = "";
           currentAttrs = [];
           isClosingTag = false;
           isSelfClosing = false;
           state = STATE.TEXT;
-        } else if (char === '/' && !isClosingTag) {
+        } else if (char === "/" && !isClosingTag) {
           isSelfClosing = true;
           state = STATE.TAG_END;
         }
         break;
-      
+
       case STATE.ATTR_NAME:
         if (/[a-zA-Z0-9\-_:]/.test(char)) {
           attrNameBuffer += char.toLowerCase();
-        } else if (char === '=') {
+        } else if (char === "=") {
           state = STATE.ATTR_VALUE_START;
         } else if (/\s/.test(char)) {
           if (attrNameBuffer) {
             // Boolean attribute with no value
-            currentAttrs.push([attrNameBuffer, '']);
-            attrNameBuffer = '';
+            currentAttrs.push([attrNameBuffer, ""]);
+            attrNameBuffer = "";
           }
-        } else if (char === '>') {
+        } else if (char === ">") {
           if (attrNameBuffer) {
             // Add the attribute without a value
-            currentAttrs.push([attrNameBuffer, '']);
-            attrNameBuffer = '';
+            currentAttrs.push([attrNameBuffer, ""]);
+            attrNameBuffer = "";
           }
-          
+
           if (isClosingTag) {
             handleEndTag(tagNameBuffer);
           } else {
             handleStartTag(tagNameBuffer, currentAttrs, isSelfClosing);
           }
-          
-          tagNameBuffer = '';
+
+          tagNameBuffer = "";
           currentAttrs = [];
           isClosingTag = false;
           isSelfClosing = false;
           state = STATE.TEXT;
-        } else if (char === '/' && !isClosingTag) {
+        } else if (char === "/" && !isClosingTag) {
           if (attrNameBuffer) {
             // Add the final attribute
-            currentAttrs.push([attrNameBuffer, '']);
-            attrNameBuffer = '';
+            currentAttrs.push([attrNameBuffer, ""]);
+            attrNameBuffer = "";
           }
-          
+
           isSelfClosing = true;
           state = STATE.TAG_END;
         }
         break;
-        
+
       case STATE.ATTR_VALUE_START:
         if (char === '"' || char === "'") {
           inQuote = char;
-          attrValueBuffer = '';
+          attrValueBuffer = "";
           state = STATE.ATTR_VALUE;
         } else if (/\s/.test(char)) {
           // Just skip whitespace
-        } else if (char === '>') {
+        } else if (char === ">") {
           // Attribute with empty value
-          currentAttrs.push([attrNameBuffer, '']);
-          attrNameBuffer = '';
-          
+          currentAttrs.push([attrNameBuffer, ""]);
+          attrNameBuffer = "";
+
           if (isClosingTag) {
             handleEndTag(tagNameBuffer);
           } else {
             handleStartTag(tagNameBuffer, currentAttrs, isSelfClosing);
           }
-          
-          tagNameBuffer = '';
+
+          tagNameBuffer = "";
           currentAttrs = [];
           isClosingTag = false;
           isSelfClosing = false;
@@ -371,29 +401,29 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
           state = STATE.ATTR_VALUE;
         }
         break;
-        
+
       case STATE.ATTR_VALUE:
         if (inQuote && char === inQuote) {
           // End of quoted attribute
           currentAttrs.push([attrNameBuffer, attrValueBuffer]);
-          attrNameBuffer = '';
-          attrValueBuffer = '';
-          inQuote = '';
+          attrNameBuffer = "";
+          attrValueBuffer = "";
+          inQuote = "";
           state = STATE.ATTR_NAME;
         } else if (!inQuote && /[\s>]/.test(char)) {
           // End of unquoted attribute
           currentAttrs.push([attrNameBuffer, attrValueBuffer]);
-          attrNameBuffer = '';
-          attrValueBuffer = '';
-          
-          if (char === '>') {
+          attrNameBuffer = "";
+          attrValueBuffer = "";
+
+          if (char === ">") {
             if (isClosingTag) {
               handleEndTag(tagNameBuffer);
             } else {
               handleStartTag(tagNameBuffer, currentAttrs, isSelfClosing);
             }
-            
-            tagNameBuffer = '';
+
+            tagNameBuffer = "";
             currentAttrs = [];
             isClosingTag = false;
             isSelfClosing = false;
@@ -405,16 +435,16 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
           attrValueBuffer += char;
         }
         break;
-        
+
       case STATE.TAG_END:
-        if (char === '>') {
+        if (char === ">") {
           if (isClosingTag) {
             handleEndTag(tagNameBuffer);
           } else {
             handleStartTag(tagNameBuffer, currentAttrs, true);
           }
-          
-          tagNameBuffer = '';
+
+          tagNameBuffer = "";
           currentAttrs = [];
           isClosingTag = false;
           isSelfClosing = false;
@@ -422,21 +452,19 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
         }
         break;
     }
-    
+
     position++;
   }
-  
+
   // Handle any remaining text
   emitText();
-  
+
   // Close any remaining tags
   for (let i = stack.length - 1; i >= 0; i--) {
     output += `</${stack[i]}>`;
   }
-  
+
   return output;
 }
 
-export default {
-  sanitize
-};
+// No default export

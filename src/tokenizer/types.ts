@@ -88,8 +88,4 @@ export function isDangerousAttribute(name: string): boolean {
   return false;
 }
 
-export default {
-  VOID_ELEMENTS,
-  DANGEROUS_ATTRS,
-  isDangerousAttribute
-};
+// No default export

@@ -45,6 +45,4 @@ export const DEFAULT_OPTIONS: Required<SanitizerOptions> = {
   transformText: (text) => text,
 };
 
-export default {
-  DEFAULT_OPTIONS
-};
+// No default export

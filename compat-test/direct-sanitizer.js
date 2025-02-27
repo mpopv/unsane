@@ -4,26 +4,72 @@
  */
 
 import { decode, encode, escape } from './helpers.js';
+import { DEFAULT_OPTIONS } from './shared-config.js';
 
-// Default sanitizer options with safe allowlists
-const DEFAULT_OPTIONS = {
-  allowedTags: [
-    "h1", "h2", "h3", "h4", "h5", "h6", "h7", "h8",
-    "br", "b", "i", "strong", "em", "a", "pre", "code",
-    "img", "tt", "div", "ins", "del", "sup", "sub", "p",
-    "ol", "ul", "table", "thead", "tbody", "tfoot", "blockquote",
-    "dl", "dt", "dd", "kbd", "q", "samp", "var", "hr",
-    "ruby", "rt", "rp", "li", "tr", "td", "th", "s",
-    "strike", "summary", "details", "caption", "figure", "figcaption",
-    "abbr", "bdo", "cite", "dfn", "mark", "small", "span", "time", "wbr"
-  ],
-  allowedAttributes: {
-    a: ["href", "name", "target", "rel"],
-    img: ["src", "srcset", "alt", "title", "width", "height", "loading"]
-  },
-  selfClosing: true,
-  transformText: text => text
-};
+/**
+ * Unified security checker - checks if an attribute is safe
+ */
+function checkAttributeSafety(name, value) {
+  if (!name) return { safe: false, reason: "empty-name" };
+  
+  const lowerName = name.toLowerCase();
+  
+  // Check dangerous attribute patterns
+  if (lowerName.startsWith('on') || // Event handlers
+      lowerName === 'style' ||      // Style can be used for XSS
+      lowerName === 'formaction' || // Form actions can be dangerous
+      lowerName === 'xlink:href' || // Can contain javascript
+      lowerName === 'action') {     // Can contain javascript
+    return { safe: false, reason: "dangerous-attr-name" };
+  }
+  
+  // Early return if there's no value to check
+  if (!value) return { safe: true };
+  
+  // Normalize for comparison
+  const normalized = value.toLowerCase().replace(/\s+/g, "");
+  
+  // URL attribute checks (use Set for faster lookups)
+  const urlAttributes = new Set(["href", "src", "action", "formaction", "xlink:href"]);
+  if (urlAttributes.has(lowerName)) {
+    // Check for dangerous protocols (use Set for faster lookups)
+    const dangerousProtocols = new Set([
+      "javascript:", "data:", "vbscript:", "mhtml:", "file:", "blob:", "filesystem:"
+    ]);
+    
+    for (const protocol of dangerousProtocols) {
+      if (normalized.includes(protocol)) {
+        return { safe: false, reason: "dangerous-protocol" };
+      }
+    }
+  }
+  
+  // Check for dangerous content patterns in all attributes (use Set for faster lookups)
+  const dangerousPatterns = new Set([
+    "javascript", "eval(", "new Function", "setTimeout(", "setInterval(",
+    "alert(", "confirm(", "prompt(", "document.", "window.",
+    "onerror=", "onclick=", "onload=", "onmouseover="
+  ]);
+  
+  for (const pattern of dangerousPatterns) {
+    if (normalized.includes(pattern.toLowerCase())) {
+      return { safe: false, reason: "dangerous-content" };
+    }
+  }
+  
+  // Check for control characters and Unicode obfuscation
+  if (normalized.includes("\\u0000") ||
+      normalized.includes("\0") ||
+      normalized.match(/[\u0000-\u001F]/) || // Control characters
+      normalized.includes("\u200C") || // Zero-width non-joiner
+      normalized.includes("\u200D") || // Zero-width joiner
+      normalized.includes("\uFEFF")    // Zero-width no-break space
+  ) {
+    return { safe: false, reason: "control-chars" };
+  }
+  
+  return { safe: true };
+}
 
 /**
  * Process and filter attributes for a tag
@@ -33,59 +79,41 @@ function processAttributes(
   tagName, 
   allowedAttributesMap
 ) {
-  const allowedAttrs = allowedAttributesMap[tagName] || [];
+  // Get allowed attributes for this tag and global attributes
+  const tagAllowedAttrs = allowedAttributesMap[tagName] || [];
+  const globalAttrs = allowedAttributesMap["*"] || [];
+  // Use Set for faster lookups
+  const allowedAttrs = new Set([...tagAllowedAttrs, ...globalAttrs]);
+  
   let result = "";
 
   for (const [name, value] of attrs) {
     const lowerName = name.toLowerCase();
     
-    if (allowedAttrs.includes(lowerName)) {
-      // Filter potentially dangerous URLs and values
-      if ((lowerName === "href" || lowerName === "src") && value) {
-        const normalized = value.trim().toLowerCase().replace(/\s+/g, '');
-        if (
-          normalized.startsWith("javascript:") ||
-          normalized.startsWith("data:") ||
-          normalized.includes("\\u0000") ||
-          normalized.includes("\0") ||
-          normalized.match(/[\u0000-\u001F]/) // Control characters
-        ) {
-          continue; // Skip this attribute
-        }
-      }
-      
-      // Filter potentially dangerous event handlers
-      if (lowerName.startsWith("on")) {
-        continue; // Skip all event handlers
-      }
-      
-      // Filter attributes that might contain script values
-      if (
-        value && 
-        (
-          value.toLowerCase().includes("javascript:") ||
-          value.toLowerCase().includes("alert(") ||
-          value.toLowerCase().includes("onclick=") ||
-          value.toLowerCase().includes("onerror=") ||
-          value.toLowerCase().includes("javascript") ||
-          value.toLowerCase().includes("script")
-        )
-      ) {
-        continue;
-      }
-      
-      // Add the attribute to the output
-      if (value) {
-        // Special handling for attributes with HTML entities
-        if (lowerName === "title" && value.includes("&quot;")) {
-          // Keep the original entity encoding
-          result += ` ${lowerName}="${value}"`;
-        } else {
-          result += ` ${lowerName}="${encode(value, { escapeOnly: true })}"`;
-        }
+    // Skip attributes not in the allowlist
+    if (!allowedAttrs.has(lowerName)) {
+      continue;
+    }
+    
+    // Use the unified security check
+    const securityCheck = checkAttributeSafety(lowerName, value);
+    
+    // Skip unsafe attributes
+    if (!securityCheck.safe) {
+      continue;
+    }
+    
+    // Add the attribute to the output
+    if (value) {
+      // Special handling for attributes with HTML entities
+      if (lowerName === "title" && value.includes("&quot;")) {
+        // Keep the original entity encoding
+        result += ` ${lowerName}="${value}"`;
       } else {
-        result += ` ${lowerName}`;
+        result += ` ${lowerName}="${encode(value, { escapeOnly: true })}"`;
       }
+    } else {
+      result += ` ${lowerName}`;
     }
   }
   
@@ -98,6 +126,9 @@ function processAttributes(
 export function sanitize(html, options = {}) {
   // Merge default options with user options
   const mergedOptions = { ...DEFAULT_OPTIONS, ...options };
+  
+  // Convert allowedTags array to Set for faster lookups
+  const allowedTagsSet = new Set(mergedOptions.allowedTags);
   
   // Stack for tracking open tags
   const stack = [];
@@ -120,11 +151,11 @@ export function sanitize(html, options = {}) {
     ATTR_VALUE: 6
   };
   
-  // List of void elements that should be self-closing
-  const VOID_ELEMENTS = [
+  // List of void elements that should be self-closing (as Set for faster lookups)
+  const VOID_ELEMENTS = new Set([
     "area", "base", "br", "col", "embed", "hr", "img", "input",
     "link", "meta", "param", "source", "track", "wbr"
-  ];
+  ]);
   
   let state = STATE.TEXT;
   let tagNameBuffer = '';
@@ -170,7 +201,7 @@ export function sanitize(html, options = {}) {
       return;
     }
     
-    if (mergedOptions.allowedTags.includes(tagName)) {
+    if (allowedTagsSet.has(tagName)) {
       // Special handling for HTML structure - div inside p is invalid HTML
       if (tagName === "div" && stack.includes("p")) {
         const pIndex = stack.lastIndexOf("p");
@@ -185,7 +216,7 @@ export function sanitize(html, options = {}) {
       }
       
       // Handle void elements and self-closing tags
-      if (VOID_ELEMENTS.includes(tagName) || selfClosing) {
+      if (VOID_ELEMENTS.has(tagName) || selfClosing) {
         const attrsStr = processAttributes(
           attrs,
           tagName,
@@ -213,7 +244,7 @@ export function sanitize(html, options = {}) {
   
   // Function to handle an end tag
   function handleEndTag(tagName) {
-    if (mergedOptions.allowedTags.includes(tagName) && !VOID_ELEMENTS.includes(tagName)) {
+    if (allowedTagsSet.has(tagName) && !VOID_ELEMENTS.has(tagName)) {
       // Find the matching opening tag in the stack
       const index = stack.lastIndexOf(tagName);
       
@@ -268,8 +299,11 @@ export function sanitize(html, options = {}) {
         } else if (/[a-zA-Z]/.test(char)) {
           tagNameBuffer = char.toLowerCase();
           
-          // Special handling for script tags - they should be skipped entirely
-          if (!isClosingTag && tagNameBuffer === 's' && html.slice(position, position + 6).toLowerCase() === 'script') {
+          // Special handling for script or style tags - skip them entirely
+          if (!isClosingTag && (
+              (tagNameBuffer === 's' && html.slice(position, position + 6).toLowerCase() === 'script') ||
+              (tagNameBuffer === 's' && html.slice(position, position + 5).toLowerCase() === 'style')
+          )) {
             // Find position of tag closing
             let endPos = position;
             while (endPos < html.length && html[endPos] !== '>') {
@@ -277,14 +311,17 @@ export function sanitize(html, options = {}) {
             }
             
             if (endPos < html.length) {
-              // Skip to the closing script tag
-              const scriptEnd = html.indexOf('</script>', endPos);
-              if (scriptEnd !== -1) {
-                position = scriptEnd + 8; // Move past </script>
+              // Skip directly to the closing tag without parsing content
+              const isScript = html.slice(position, position + 6).toLowerCase() === 'script';
+              const closingTag = isScript ? '</script>' : '</style>';
+              const tagEnd = html.indexOf(closingTag, endPos);
+              
+              if (tagEnd !== -1) {
+                position = tagEnd + closingTag.length - 1; // Move past closing tag (will be incremented in the loop)
               } else {
-                position = html.length; 
+                position = html.length - 1; 
               }
-              // Resume parsing without emitting any script content
+              // Resume parsing without emitting any script/style content
               state = STATE.TEXT;
               continue;
             }

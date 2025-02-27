@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.0.9 (2025-02-26)
+
+### Performance Improvements
+- Removed default exports in favor of named exports only for smaller bundle size
+- Simplified script & style tag handling to skip content parsing for better performance
+- Unified security checks to reduce code duplication and improve minification
+- Converted array lookups to Sets for faster performance
+- Bundle size reduced by ~21-23% with named exports
+
 ## 0.0.8 (2025-02-26)
 
 ### Performance Improvements
