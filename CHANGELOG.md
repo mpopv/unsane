@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.12 (2025-02-26)
+
+### Security Updates
+- Updated dependencies to fix esbuild CORS vulnerability (GHSA-67mh-4wv8-2f99)
+- Updated vitest to latest version
+
 ## 0.0.11 (2025-02-26)
 
 ### Simplifications
