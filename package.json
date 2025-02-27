@@ -30,6 +30,14 @@
   ],
   "author": "mpopv <mattpopovich@outlook.com> (https://github.com/mpopv)",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mpopv/unsane.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mpopv/unsane/issues"
+  },
+  "homepage": "https://github.com/mpopv/unsane#readme",
   "devDependencies": {
     "@types/node": "^18.0.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
