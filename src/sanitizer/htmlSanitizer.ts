@@ -146,7 +146,25 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
   
   // Function to handle a start tag
   function handleStartTag(tagName: string, attrs: Array<[string, string]>, selfClosing: boolean) {
+    // Skip any script tags entirely for security
+    if (tagName === 'script') {
+      return;
+    }
+    
     if (mergedOptions.allowedTags.includes(tagName)) {
+      // Special handling for HTML structure - div inside p is invalid HTML
+      if (tagName === "div" && stack.includes("p")) {
+        const pIndex = stack.lastIndexOf("p");
+        
+        // Close all tags up to and including the p tag
+        for (let i = stack.length - 1; i >= pIndex; i--) {
+          output += `</${stack[i]}>`;
+        }
+        
+        // Remove closed tags from stack
+        stack.splice(pIndex);
+      }
+      
       // Handle void elements and self-closing tags
       if (VOID_ELEMENTS.includes(tagName) || selfClosing) {
         const attrsStr = processAttributes(
@@ -257,7 +275,7 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
         } else if (/[a-zA-Z]/.test(char)) {
           tagNameBuffer = char.toLowerCase();
           
-          // Special handling for script tags - they should be skipped
+          // Special handling for script tags - they should be skipped entirely
           if (!isClosingTag && tagNameBuffer === 's' && html.slice(position, position + 6).toLowerCase() === 'script') {
             // Find position of tag closing
             let endPos = position;
@@ -266,19 +284,6 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
             }
             
             if (endPos < html.length) {
-              // We found the end of the opening script tag
-              // Now we need to capture any text content that comes before the script
-              const textBeforeScript = html.slice(0, position - 1); // Up to the '<' that started the script tag
-              const lastTextTagEnd = textBeforeScript.lastIndexOf('>');
-              
-              if (lastTextTagEnd !== -1) {
-                const textContent = textBeforeScript.slice(lastTextTagEnd + 1);
-                if (textContent.trim()) {
-                  textBuffer = textContent;
-                  emitText();
-                }
-              }
-              
               // Skip to the closing script tag
               const scriptEnd = html.indexOf('</script>', endPos);
               if (scriptEnd !== -1) {
@@ -286,6 +291,7 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
               } else {
                 position = html.length; 
               }
+              // Resume parsing without emitting any script content
               state = STATE.TEXT;
               continue;
             }
