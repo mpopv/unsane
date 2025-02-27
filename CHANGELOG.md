@@ -6,8 +6,9 @@
 - Drastically reduced bundle size by inlining tokenizer logic
 - Combined parsing and sanitization into a single-pass implementation
 - Eliminated intermediate token structures
-- Minified size reduced from ~15.78KB to ~3.33KB (79% reduction)
-- Gzipped size reduced from ~3.96KB to ~1.36KB (66% reduction)
+- Simplified doctype and comment handling for smaller code size
+- Minified size reduced from ~15.78KB to ~3.14KB (80% reduction)
+- Gzipped size reduced from ~3.96KB to ~1.32KB (67% reduction)
 
 ### Security Improvements
 - Improved script tag handling for better XSS protection
