@@ -90,13 +90,16 @@ export function containsDangerousContent(value: string): boolean {
  * @param encode Function to encode unsafe content
  * @returns Sanitized text
  */
-export function sanitizeTextContent(text: string, encode: (s: string) => string): string {
+export function sanitizeTextContent(text: string, encodeFunc?: (s: string, o?: any) => string): string {
   if (!text) return '';
   
   // Simple regex pattern for common dangerous strings
   const dangerousPattern = /javascript|script|alert|eval|onerror|onclick|on\w+\s*=|\(\s*\)|function/gi;
   
-  return text.replace(dangerousPattern, match => encode(match));
+  // Use the provided encode function or default to a basic encoder
+  const encoder = encodeFunc || ((s: string) => s);
+  
+  return text.replace(dangerousPattern, match => encoder(match, { useNamedReferences: true }));
 }
 
 export default {

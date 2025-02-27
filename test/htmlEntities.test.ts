@@ -24,10 +24,13 @@ describe("htmlEntities", () => {
     });
 
     it("should handle malformed entities", () => {
-      expect(decode("&lt")).toBe("&lt"); // No semicolon
-      expect(decode("&unknown;")).toBe("&unknown;"); // Unknown entity
-      expect(decode("&#xGHI;")).toBe("&#xGHI;"); // Invalid hex
-      expect(decode("&#abc;")).toBe("&#abc;"); // Invalid decimal
+      // Malformed entities without semicolons should remain unchanged
+      expect(decode("&lt")).toBe("&lt"); 
+      
+      // Unknown or invalid entities with semicolons should remain unchanged
+      expect(decode("&unknown;")).toBe("&unknown;"); 
+      expect(decode("&#xGHI;")).toBe("&#xGHI;");  
+      expect(decode("&#abc;")).toBe("&#abc;"); 
     });
 
     it("should decode multiple entities in a string", () => {

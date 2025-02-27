@@ -74,12 +74,15 @@ function processAttributes(
         continue;
       }
       
-      // Special handling for attributes with HTML entities
-      if (lowerName === "title" && value && value.includes("&quot;")) {
-        // Keep the original entity encoding
-        result += ` ${lowerName}="${value}"`;
-      } else if (value) {
-        result += ` ${lowerName}="${escape(value)}"`;
+      // Add the attribute to the output
+      if (value) {
+        // Special handling for attributes with HTML entities
+        if (lowerName === "title" && value.includes("&quot;")) {
+          // Keep the original entity encoding
+          result += ` ${lowerName}="${value}"`;
+        } else {
+          result += ` ${lowerName}="${encode(value, { escapeOnly: true })}"`;
+        }
       } else {
         result += ` ${lowerName}`;
       }
@@ -135,28 +138,24 @@ export function sanitize(html, options = {}) {
   // Helper function to emit text
   function emitText() {
     if (textBuffer) {
+      // Apply custom text transformation if provided
       const text = mergedOptions.transformText 
         ? mergedOptions.transformText(textBuffer) 
         : textBuffer;
       
-      // Only encode non-empty text
+      // Only process non-empty text
       if (text.trim() || text.includes(" ")) {
         // Remove any control characters directly
         const cleanText = text.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
         
-        if (cleanText.includes("&")) {
-          // Text already contains entities - sanitize carefully
-          const decoded = decode(cleanText);
-          
-          // Check for potentially dangerous content
-          if (decoded.match(/javascript|script|alert|onerror|onclick/i)) {
-            output += encode(decoded, { useNamedReferences: true });
-          } else {
-            output += encode(decoded);
-          }
+        // Decode any entities, then sanitize and re-encode
+        const decoded = decode(cleanText);
+        
+        // Check for potentially dangerous content
+        if (decoded.match(/javascript|script|alert|onerror|onclick|on\w+\s*=|\(\s*\)|function/i)) {
+          output += encode(decoded, { useNamedReferences: true });
         } else {
-          // Regular text - encode to prevent XSS
-          output += encode(cleanText);
+          output += encode(decoded);
         }
       }
       

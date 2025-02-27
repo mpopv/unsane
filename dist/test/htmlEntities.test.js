@@ -22,10 +22,12 @@ const htmlEntities_1 = require("../src/utils/htmlEntities");
             (0, vitest_1.expect)((0, htmlEntities_1.decode)("&#X3C;")).toBe("<"); // Capital X also works
         });
         (0, vitest_1.it)("should handle malformed entities", () => {
-            (0, vitest_1.expect)((0, htmlEntities_1.decode)("&lt")).toBe("&lt"); // No semicolon
-            (0, vitest_1.expect)((0, htmlEntities_1.decode)("&unknown;")).toBe("&unknown;"); // Unknown entity
-            (0, vitest_1.expect)((0, htmlEntities_1.decode)("&#xGHI;")).toBe("&#xGHI;"); // Invalid hex
-            (0, vitest_1.expect)((0, htmlEntities_1.decode)("&#abc;")).toBe("&#abc;"); // Invalid decimal
+            // Malformed entities without semicolons should remain unchanged
+            (0, vitest_1.expect)((0, htmlEntities_1.decode)("&lt")).toBe("&lt");
+            // Unknown or invalid entities with semicolons should remain unchanged
+            (0, vitest_1.expect)((0, htmlEntities_1.decode)("&unknown;")).toBe("&unknown;");
+            (0, vitest_1.expect)((0, htmlEntities_1.decode)("&#xGHI;")).toBe("&#xGHI;");
+            (0, vitest_1.expect)((0, htmlEntities_1.decode)("&#abc;")).toBe("&#abc;");
         });
         (0, vitest_1.it)("should decode multiple entities in a string", () => {
             (0, vitest_1.expect)((0, htmlEntities_1.decode)("&lt;div&gt;Hello &amp; world!&lt;/div&gt;")).toBe("<div>Hello & world!</div>");

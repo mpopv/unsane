@@ -68,7 +68,7 @@ function processAttributes(
 
     // Add the attribute to the output
     if (value) {
-      result += ` ${lowerName}="${escape(value)}"`;
+      result += ` ${lowerName}="${encode(value, { escapeOnly: true })}"`;
     } else {
       result += ` ${lowerName}`;
     }
@@ -121,23 +121,20 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
   // Helper function to emit text
   function emitText() {
     if (textBuffer) {
+      // Apply custom text transformation if provided
       const text = mergedOptions.transformText 
         ? mergedOptions.transformText(textBuffer) 
         : textBuffer;
       
-      // Only encode non-empty text
+      // Only process non-empty text
       if (text.trim() || text.includes(" ")) {
         // Remove any control characters directly
         const cleanText = text.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
         
-        if (cleanText.includes("&")) {
-          // Text already contains entities - sanitize carefully
-          const decoded = decode(cleanText);
-          output += sanitizeTextContent(decoded, encode);
-        } else {
-          // Regular text - encode to prevent XSS
-          output += encode(cleanText);
-        }
+        // Decode any entities, then sanitize and re-encode
+        // This handles both regular text and text with entities in one path
+        const decoded = decode(cleanText);
+        output += sanitizeTextContent(decoded, encode);
       }
       
       textBuffer = '';
