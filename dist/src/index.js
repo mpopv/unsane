@@ -2,7 +2,11 @@
 /**
  * unsane - A lightweight, zero-dependency HTML sanitization library
  *
- * Main entry point that exports the public API
+ * This library provides HTML sanitization with:
+ * - Small footprint (minimal bundle size)
+ * - No dependencies (works in any JavaScript environment)
+ * - Protection against XSS vectors
+ * - Simple, streamlined API
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.decode = exports.encode = exports.escape = exports.sanitize = void 0;

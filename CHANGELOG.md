@@ -1,6 +1,25 @@
 # Changelog
 
-## 0.0.4 (Unreleased)
+## 0.0.7 (2025-02-26)
+
+### Bug Fixes
+- Fixed HTML tokenizer script tag handling to properly extract text content
+- Improved architecture with more modular code organization
+- Reduced bundle size (~15.78KB minified, ~3.96KB gzipped)
+
+## 0.0.6 (2025-02-26)
+
+### Improvements
+- Added package logo
+- Updated repository information
+
+## 0.0.5 (2025-02-26)
+
+### Improvements
+- Minor code optimizations
+- Updated documentation
+
+## 0.0.4 (2025-02-26)
 
 ### Major Changes
 - Completely refactored the code architecture for better maintainability

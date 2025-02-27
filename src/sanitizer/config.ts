@@ -5,106 +5,46 @@
 import { SanitizerOptions } from "../types";
 
 /**
- * Default sanitizer options with safe allowlists
+ * Default sanitizer options with minimal safe allowlists
  */
 export const DEFAULT_OPTIONS: Required<SanitizerOptions> = {
+  // Common HTML elements that are safe by default
   allowedTags: [
     // Headings
     "h1", "h2", "h3", "h4", "h5", "h6",
     
-    // Text formatting
-    "b", "i", "strong", "em", "tt", "s", "strike", "small", "big", "mark",
-    
-    // Structure
-    "p", "div", "span", "br", "hr",
-    
-    // Lists
-    "ol", "ul", "li", "dl", "dt", "dd",
+    // Basic text formatting
+    "p", "div", "span", "b", "i", "strong", "em", 
     
     // Links and media
     "a", "img",
     
+    // Lists
+    "ul", "ol", "li", 
+    
     // Tables
-    "table", "tbody", "thead", "tfoot", "tr", "td", "th", "caption",
+    "table", "tr", "td", "th", 
     
-    // Code
-    "pre", "code", "samp", "kbd", "var",
-    
-    // Quotes and citations
-    "blockquote", "q", "cite",
-    
-    // Inline semantic elements
-    "abbr", "bdo", "dfn", "time", "wbr", 
-    
-    // Text decoration
-    "ins", "del", "sup", "sub", 
-    
-    // Containers
-    "summary", "details", "figure", "figcaption", "ruby", "rt", "rp",
+    // Other common elements
+    "br", "hr", "code", "pre", "blockquote"
   ],
+  
+  // Only the most essential attributes
   allowedAttributes: {
     // Links
-    a: ["href", "name", "target", "rel", "title", "hreflang", "type"],
+    a: ["href", "target", "rel"],
     
     // Images 
-    img: ["src", "srcset", "alt", "title", "width", "height", "loading", "align"],
+    img: ["src", "alt", "width", "height"],
     
-    // Allow specific global attributes
-    "*": ["id", "class", "lang", "dir", "title", "translate"],
-    
-    // Tables
-    table: ["width", "border", "align", "cellspacing", "cellpadding"],
-    th: ["scope", "colspan", "rowspan", "align", "valign"],
-    td: ["colspan", "rowspan", "align", "valign"],
-    
-    // Other element-specific attributes
-    ol: ["type", "start"],
-    li: ["value"],
-    abbr: ["title"],
-    time: ["datetime"],
-    q: ["cite"],
-    blockquote: ["cite"],
+    // Global attributes
+    "*": ["id", "class"]
   },
+  
   selfClosing: true,
   transformText: (text) => text,
 };
 
-/**
- * Additional dangerous attribute values that should be filtered
- */
-export const DANGEROUS_ATTR_VALUES = [
-  "javascript:",
-  "data:",
-  "vbscript:",
-  "file:",
-  "alert(",
-  "confirm(",
-  "prompt(",
-  "eval(",
-  "Function(",
-  "setTimeout(",
-  "setInterval(",
-  "onerror=",
-  "onclick=",
-  "expression(",
-];
-
-/**
- * Check if an attribute value is suspicious
- * @param value Attribute value to check
- * @returns True if the value contains suspicious content
- */
-export function hasDangerousValue(value: string): boolean {
-  if (!value) return false;
-  
-  const normalized = value.toLowerCase();
-  
-  return DANGEROUS_ATTR_VALUES.some(pattern => normalized.includes(pattern)) ||
-         normalized.match(/[\u0000-\u001F]/) !== null; // Check for control characters
-}
-
 export default {
-  DEFAULT_OPTIONS,
-  DANGEROUS_ATTR_VALUES,
-  hasDangerousValue,
+  DEFAULT_OPTIONS
 };

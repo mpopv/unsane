@@ -6,7 +6,7 @@ A tiny, zero-dependency, run-anywhere HTML sanitization library written in TypeS
 
 ## Features
 
-- **Lightweight**: ~16KB unpacked, ~4KB minified+gzipped
+- **Lightweight**: ~15.8KB minified, ~4KB minified+gzipped
 - **Zero dependencies**: Includes internal HTML entity encoder and state machine tokenizer
 - **Run anywhere**: Doesn't rely on DOM APIs, JSDOM, or Node APIs, so you can use in any environment
 - **Tiny drop-in replacement for DOMPurify**: Tested against DOMPurify's own tests with improved XSS protection
@@ -99,9 +99,9 @@ This library is designed to be lightweight while providing comprehensive HTML sa
 
 | Metric                 | Size      |
 | ---------------------- | --------- |
-| Unpacked               | ~38.3 KB  |
-| Minified               | ~16.03 KB |
-| **Minified + Gzipped** | **~4 KB** |
+| Unpacked               | ~37.99 KB |
+| Minified               | ~15.78 KB |
+| **Minified + Gzipped** | **~3.96 KB** |
 
 You can check the package size yourself with:
 

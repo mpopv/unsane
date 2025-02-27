@@ -1,14 +1,15 @@
 /**
- * HTML Entity handling utilities
+ * HTML Entity handling utilities - simplified and optimized version
  */
 
-// Simple HTML entity maps - could be expanded for full coverage
+// Simple HTML entity maps - common entities only
 const NAMED_TO_CHAR: Record<string, string> = {
   quot: '"',
   amp: "&",
   lt: "<",
   gt: ">",
   apos: "'",
+  nbsp: "\u00A0"
 };
 
 const CHAR_TO_NAMED: Record<string, string> = {
@@ -16,19 +17,8 @@ const CHAR_TO_NAMED: Record<string, string> = {
   "&": "amp",
   "<": "lt",
   ">": "gt",
-  "'": "apos",
+  "'": "apos"
 };
-
-// Additional dangerous protocols that should be sanitized
-export const DANGEROUS_PROTOCOLS = [
-  "javascript:",
-  "data:",
-  "vbscript:",
-  "mhtml:",
-  "file:",
-  "blob:",
-  "filesystem:",
-];
 
 /**
  * Convert a code point to a string, handling surrogate pairs
@@ -49,49 +39,42 @@ function codePointToString(codePoint: number): string {
 }
 
 /**
- * Decode a numeric HTML entity reference
- */
-function decodeNumericReference(body: string): string {
-  let codePoint = 0;
-
-  if (body[0] === "x" || body[0] === "X") {
-    // Hex format
-    const hex = body.slice(1);
-    if (!/^[0-9A-Fa-f]+$/.test(hex)) return "&#" + body + ";";
-    codePoint = parseInt(hex, 16);
-  } else {
-    // Decimal format
-    if (!/^[0-9]+$/.test(body)) return "&#" + body + ";";
-    codePoint = parseInt(body, 10);
-  }
-
-  return codePointToString(codePoint);
-}
-
-/**
- * Decode a single HTML entity
- */
-function decodeEntity(entity: string): string {
-  let body = entity.slice(1);
-  const hasSemicolon = body.endsWith(";");
-
-  if (hasSemicolon) body = body.slice(0, -1);
-
-  if (body[0] === "#") {
-    const result = decodeNumericReference(body.slice(1));
-    if (result.startsWith("&#")) return entity;
-    return result;
-  }
-
-  const char = NAMED_TO_CHAR[body];
-  return char && hasSemicolon ? char : entity;
-}
-
-/**
  * Decode all HTML entities in a string
  */
 export function decode(text: string): string {
-  return text.replace(/&(#?[0-9A-Za-z]+);?/g, (match) => decodeEntity(match));
+  if (!text) return "";
+  
+  return text.replace(/&(#?[0-9A-Za-z]+);?/g, (match, entity) => {
+    // Return the match as-is if it doesn't end with a semicolon
+    if (!match.endsWith(';')) {
+      return match;
+    }
+    
+    // Remove trailing semicolon
+    entity = entity.replace(/;$/, '');
+    
+    if (entity[0] === "#") {
+      // Numeric entity
+      if (entity.length < 2) return match;
+      
+      // Handle hex or decimal
+      try {
+        const codePoint = entity[1] === "x" || entity[1] === "X"
+          ? parseInt(entity.slice(2), 16)  // Hex format
+          : parseInt(entity.slice(1), 10); // Decimal format
+          
+        // Invalid number should return original match
+        if (isNaN(codePoint)) return match;
+        
+        return codePointToString(codePoint);
+      } catch (e) {
+        return match;
+      }
+    }
+    
+    // Named entity
+    return NAMED_TO_CHAR[entity] || match;
+  });
 }
 
 /**
@@ -99,37 +82,18 @@ export function decode(text: string): string {
  */
 export function escape(text: string): string {
   if (!text) return "";
-
-  const asString = String(text);
-
-  // Standard case - use consistent encoding
-  return asString.replace(/["'&<>`]/g, (char) => {
+  
+  return String(text).replace(/["'&<>`]/g, char => {
     switch (char) {
-      case '"':
-        return "&quot;";
-      case "'":
-        return "&#x27;";
-      case "&":
-        return "&amp;";
-      case "<":
-        return "&lt;";
-      case ">":
-        return "&gt;";
-      case "`":
-        return "&#x60;";
-      default:
-        return char;
+      case '"': return "&quot;";
+      case "'": return "&#x27;";
+      case "&": return "&amp;";
+      case "<": return "&lt;";
+      case ">": return "&gt;";
+      case "`": return "&#x60;";
+      default: return char;
     }
   });
-}
-
-/**
- * Create numeric HTML entity reference
- */
-function numericReference(codePoint: number, decimal: boolean): string {
-  return decimal
-    ? "&#" + codePoint + ";"
-    : "&#x" + codePoint.toString(16).toUpperCase() + ";";
 }
 
 /**
@@ -137,95 +101,54 @@ function numericReference(codePoint: number, decimal: boolean): string {
  */
 export interface EncodeOptions {
   useNamedReferences?: boolean;
-  encodeEverything?: boolean;
   decimal?: boolean;
+}
+
+/**
+ * Options for entity encoding
+ */
+export interface EncodeOptions {
+  useNamedReferences?: boolean;
+  decimal?: boolean;
+  encodeEverything?: boolean;
 }
 
 /**
  * Encode characters to HTML entities
  */
 export function encode(text: string, options: EncodeOptions = {}): string {
-  const {
-    useNamedReferences = false,
-    encodeEverything = false,
+  if (!text) return "";
+  
+  const { 
+    useNamedReferences = false, 
     decimal = false,
+    encodeEverything = false 
   } = options;
-
-  const result = [];
-
-  for (const char of text) {
-    const codePoint = char.codePointAt(0) || char.charCodeAt(0);
-
-    if (CHAR_TO_NAMED[char]) {
-      if (useNamedReferences) {
-        result.push("&", CHAR_TO_NAMED[char], ";");
-      } else {
-        result.push(numericReference(codePoint, decimal));
-      }
-    } else {
-      if (!encodeEverything && codePoint >= 0x20 && codePoint < 0x7f) {
-        result.push(char);
-        continue;
-      }
-      result.push(numericReference(codePoint, decimal));
+  
+  // If we need to encode everything, use a different pattern
+  const pattern = encodeEverything ? /./g : /["&<>']/g;
+  
+  return String(text).replace(pattern, char => {
+    // For normal chars that aren't special, only encode if encodeEverything is true
+    if (!encodeEverything && !(/["&<>']/.test(char))) {
+      return char;
     }
-  }
-
-  return result.join("");
-}
-
-/**
- * Check if a URL might be dangerous (contains script or dangerous protocol)
- * @param url URL to check
- * @returns True if URL is potentially dangerous
- */
-export function isUnsafeUrl(url: string): boolean {
-  if (!url) return false;
-  
-  // Sanitize and normalize for comparison
-  const normalized = url.trim().toLowerCase().replace(/\s+/g, "");
-  
-  // Check for dangerous protocols
-  for (const protocol of DANGEROUS_PROTOCOLS) {
-    if (normalized.startsWith(protocol)) {
-      return true;
+    
+    // Use named references if requested and available
+    if (useNamedReferences && CHAR_TO_NAMED[char]) {
+      return `&${CHAR_TO_NAMED[char]};`;
     }
-  }
-  
-  // Check for Unicode escapes and control characters
-  if (
-    normalized.includes("\\u0000") ||
-    normalized.includes("\0") ||
-    normalized.split("").some((char) => char.charCodeAt(0) <= 0x1f) ||
-    // Check for obfuscation patterns
-    normalized.includes("\\u00") ||  // Unicode escapes
-    normalized.includes("&#") ||     // HTML entity obfuscation
-    normalized.includes("%") ||      // URL encoding that might be hiding something
-    normalized.includes(String.fromCodePoint(0x200c)) || // Zero-width non-joiner
-    normalized.includes(String.fromCodePoint(0x200d))    // Zero-width joiner
-  ) {
-    return true;
-  }
-  
-  // Check for script-like content
-  if (
-    normalized.includes("javascript") ||
-    normalized.includes("script") ||
-    normalized.includes("eval(") ||
-    normalized.includes("alert(") ||
-    normalized.includes("function(") ||
-    (normalized.includes("on") && normalized.includes("="))
-  ) {
-    return true;
-  }
-  
-  return false;
+    
+    // Otherwise use numeric encoding
+    const codePoint = char.charCodeAt(0);
+    return decimal
+      ? `&#${codePoint};`
+      : `&#x${codePoint.toString(16).toUpperCase()};`; // Use uppercase for hex
+  });
 }
 
 export default {
   decode,
   encode,
-  escape,
-  isUnsafeUrl,
-  DANGEROUS_PROTOCOLS
+  escape
 };
