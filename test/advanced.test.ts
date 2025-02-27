@@ -6,6 +6,7 @@
 
 import { expect, describe, it } from 'vitest';
 import { sanitize } from '../src/sanitizer/htmlSanitizer';
+import { ALLOWED_PROTOCOLS } from '../src/utils/securityUtils';
 
 describe('Advanced HTML Sanitization', () => {
   describe('Complex HTML Structure', () => {
@@ -187,6 +188,40 @@ describe('Advanced HTML Sanitization', () => {
       const input = '<div title="&quot;><script>alert(1)</script>">Text</div>';
       // Should keep the title but escape the content
       expect(sanitize(input)).not.toContain('<script>');
+    });
+  });
+  
+  describe('URL Protocol Allowlisting', () => {
+    it('should allow whitelisted protocols', () => {
+      // Test all allowed protocols
+      for (const protocol of ALLOWED_PROTOCOLS) {
+        const input = `<a href="${protocol}//example.com">Link</a>`;
+        expect(sanitize(input)).toBe(input);
+      }
+    });
+    
+    it('should block all non-whitelisted protocols', () => {
+      // Test various dangerous or unknown protocols that aren't allowed
+      const dangerousProtocols = [
+        'javascript:', 
+        'data:', 
+        'vbscript:', 
+        'mhtml:', 
+        'file:', 
+        'blob:',
+        'unknown:',
+        'jav&#x09;ascript:', // Tab obfuscation
+        'java\tscript:',     // Another tab obfuscation
+        'java script:',      // Space obfuscation
+        'JAVASCRIPT:',       // Case variations
+        '\u0001javascript:',  // Control character obfuscation
+        'javascript\u200C:'   // Zero-width character obfuscation
+      ];
+      
+      for (const protocol of dangerousProtocols) {
+        const input = `<a href="${protocol}alert(1)">Link</a>`;
+        expect(sanitize(input)).toBe('<a>Link</a>');
+      }
     });
   });
 });

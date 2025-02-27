@@ -7,8 +7,8 @@
  * - Protection against XSS vectors
  * - Simple, streamlined API
  */
-import { sanitize } from './sanitizer/htmlSanitizer';
-import { escape, encode, decode } from './utils/htmlEntities';
-import { SanitizerOptions, Sanitizer } from './types';
+import { sanitize } from "./sanitizer/htmlSanitizer";
+import { escape, encode, decode } from "./utils/htmlEntities";
+import { SanitizerOptions, Sanitizer } from "./types";
 export { sanitize, escape, encode, decode };
 export type { SanitizerOptions, Sanitizer };

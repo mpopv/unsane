@@ -32,14 +32,18 @@ function checkAttributeSafety(name, value) {
   // URL attribute checks (use Set for faster lookups)
   const urlAttributes = new Set(["href", "src", "action", "formaction", "xlink:href"]);
   if (urlAttributes.has(lowerName)) {
-    // Check for dangerous protocols (use Set for faster lookups)
-    const dangerousProtocols = new Set([
-      "javascript:", "data:", "vbscript:", "mhtml:", "file:", "blob:", "filesystem:"
+    // Only these protocols are allowed (allowlist approach)
+    const allowedProtocols = new Set([
+      "http:", "https:", "mailto:", "tel:", "ftp:", "sms:"
     ]);
     
-    for (const protocol of dangerousProtocols) {
-      if (normalized.includes(protocol)) {
-        return { safe: false, reason: "dangerous-protocol" };
+    // Check for URL protocols and only allow from our explicit allowlist
+    const protocolMatch = normalized.match(/^([a-z0-9.+-]+):/i);
+    if (protocolMatch) {
+      const protocol = protocolMatch[1].toLowerCase() + ':';
+      // If a protocol is found but it's not in our allowlist, reject it
+      if (!allowedProtocols.has(protocol)) {
+        return { safe: false, reason: "non-allowlisted-protocol" };
       }
     }
   }

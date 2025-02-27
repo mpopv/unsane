@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.0.10 (2025-02-26)
+
+### Security Improvements
+- Switched to a protocol allowlist approach instead of a blocklist for URLs
+- Added tests for protocol allowlisting to prevent bypassing URL filters
+- Only http, https, mailto, tel, ftp, and sms protocols are allowed
+- Fixed potential obfuscation attacks with manipulated protocols
+
 ## 0.0.9 (2025-02-26)
 
 ### Performance Improvements

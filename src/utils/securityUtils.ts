@@ -10,16 +10,15 @@ export interface EncodeOptions {
   escapeOnly?: boolean;
 }
 
-// List of dangerous protocols that should be removed
-export const DANGEROUS_PROTOCOLS = [
-  "javascript:",
-  "data:",
-  "vbscript:",
-  "mhtml:",
-  "file:",
-  "blob:",
-  "filesystem:",
-];
+// Only these protocols are allowed (allowlist approach)
+export const ALLOWED_PROTOCOLS = new Set([
+  "http:",
+  "https:", 
+  "mailto:",
+  "tel:",
+  "ftp:", 
+  "sms:"
+]);
 
 // List of dangerous content patterns
 export const DANGEROUS_CONTENT = [
@@ -57,9 +56,12 @@ export function containsDangerousContent(value: string): boolean {
   // Normalize for comparison
   const normalized = value.toLowerCase().replace(/\s+/g, "");
 
-  // Check for dangerous protocols
-  for (const protocol of DANGEROUS_PROTOCOLS) {
-    if (normalized.includes(protocol)) {
+  // Check for URL protocols and only allow from our explicit allowlist
+  const protocolMatch = normalized.match(/^([a-z0-9.+-]+):/i);
+  if (protocolMatch) {
+    const protocol = protocolMatch[1].toLowerCase() + ':';
+    // If a protocol is found but it's not in our allowlist, reject it
+    if (!ALLOWED_PROTOCOLS.has(protocol)) {
       return true;
     }
   }
