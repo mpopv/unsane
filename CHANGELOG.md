@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.0.11 (2025-02-26)
+
+### Simplifications
+- Removed configuration options for selfClosing and transformText
+- Always uses self-closing tags for void elements
+- Removed text transformation capability for simplified API
+- Reduced library size by removing unused options
+
 ## 0.0.10 (2025-02-26)
 
 ### Security Improvements

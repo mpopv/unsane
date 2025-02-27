@@ -48,6 +48,5 @@ export const DEFAULT_OPTIONS = {
     "*": ["id", "class"]
   },
   
-  selfClosing: true,
-  transformText: (text) => text,
+  // Always self-closing
 };

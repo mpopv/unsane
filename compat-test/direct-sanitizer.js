@@ -173,10 +173,8 @@ export function sanitize(html, options = {}) {
   // Helper function to emit text
   function emitText() {
     if (textBuffer) {
-      // Apply custom text transformation if provided
-      const text = mergedOptions.transformText 
-        ? mergedOptions.transformText(textBuffer) 
-        : textBuffer;
+      // No transformation, use text directly
+      const text = textBuffer;
       
       // Only process non-empty text
       if (text.trim() || text.includes(" ")) {
@@ -227,12 +225,8 @@ export function sanitize(html, options = {}) {
           mergedOptions.allowedAttributes
         );
         
-        // Use self-closing format if configured
-        if (mergedOptions.selfClosing) {
-          output += `<${tagName}${attrsStr} />`;
-        } else {
-          output += `<${tagName}${attrsStr}></${tagName}>`;
-        }
+        // Always use self-closing format
+        output += `<${tagName}${attrsStr} />`;
       } else {
         // Regular opening tag - add to stack
         stack.push(tagName);

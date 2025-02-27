@@ -10,14 +10,12 @@ describe('Text Content Preservation', () => {
     expect(output).toContain('Hello world');
   });
   
-  it('should apply text transformation', () => {
+  it('should preserve text case', () => {
     const input = '<p>hello world</p>';
-    const output = sanitize(input, {
-      transformText: (text) => text.toUpperCase()
-    });
-    console.log('Input with transform:', input);
-    console.log('Output with transform:', output);
-    expect(output).toContain('HELLO WORLD');
+    const output = sanitize(input);
+    console.log('Input text:', input);
+    console.log('Output text:', output);
+    expect(output).toContain('hello world');
   });
   
   it('should show text when parsing unclosed elements', () => {

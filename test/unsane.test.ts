@@ -49,15 +49,14 @@ describe("sanitize", () => {
     expect(output).toContain("New div");
   });
 
-  it("should use text transform when provided", () => {
+  it("should preserve text content", () => {
     const input = "<p>hello world</p>";
     const output = sanitize(input, {
       allowedTags: ["p"],
-      transformText: (text) => text.toUpperCase(),
     });
-    // Verify the text was transformed, but don't expect exact HTML format
+    // Verify the text is preserved
     expect(output).toContain("<p>");
-    expect(output).toContain("HELLO WORLD");
+    expect(output).toContain("hello world");
     expect(output).toContain("</p>");
   });
 });

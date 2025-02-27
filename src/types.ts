@@ -14,15 +14,7 @@ export interface SanitizerOptions {
    */
   allowedAttributes?: Record<string, string[]>;
 
-  /**
-   * If true, self-closing tags will have a trailing slash
-   */
-  selfClosing?: boolean;
-
-  /**
-   * Function to transform text content before encoding
-   */
-  transformText?: (text: string) => string;
+  // All configuration options above
 }
 
 export interface Sanitizer {

@@ -51,16 +51,12 @@ const options = {
     '*': ['id', 'class']
   },
   
-  // Whether to add a slash to self-closing tags (e.g. <img />)
-  selfClosing: true,
-  
-  // Optional function to transform text content
-  transformText: (text) => text.toUpperCase(),
+  // Self-closing tags like <img /> are always rendered with trailing slash
 };
 
 const dirty = '<script>alert("xss")</script><a href="https://example.com" onclick="hack()" style="color:red">Link</a>';
 const clean = sanitize(dirty, options);
-// -> '<a href="https://example.com">LINK</a>'
+// -> '<a href="https://example.com">Link</a>'
 ```
 
 ### HTML Entity Functions
@@ -81,15 +77,15 @@ const escaped = escape('<script>"alert"</script>');
 // -> '&lt;script&gt;&quot;alert&quot;&lt;/script&gt;'
 ```
 
-### DOMPurify Compatible API
+### DOMPurify Compatibility
 
-If you're migrating from DOMPurify, you can use the compatible API:
+This package is tested against DOMPurify's test suite to ensure it handles the same XSS vectors:
 
 ```javascript
-import DOMPurify from 'unsane';
+import { sanitize } from 'unsane';
 
-// Use the same API as DOMPurify
-const clean = DOMPurify.sanitize('<script>alert("xss")</script>');
+// Handles the same XSS vectors as DOMPurify
+const clean = sanitize('<script>alert("xss")</script>');
 // -> ''
 ```
 

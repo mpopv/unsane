@@ -41,8 +41,7 @@ export const DEFAULT_OPTIONS: Required<SanitizerOptions> = {
     "*": ["id", "class"]
   },
   
-  selfClosing: true,
-  transformText: (text) => text,
+  // Always self-close void elements
 };
 
 // No default export
