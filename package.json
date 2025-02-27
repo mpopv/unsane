@@ -1,0 +1,42 @@
+{
+  "name": "unsane",
+  "version": "0.1.0",
+  "description": "A strict, TypeScript-based HTML sanitization library (inspired by insane).",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "scripts": {
+    "build": "tsc && tsc --project tsconfig.cjs.json",
+    "test": "vitest run",
+    "test:ui": "vitest",
+    "lint": "eslint . --ext .ts,.js",
+    "prepare": "npm run build",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "html",
+    "sanitization",
+    "security",
+    "typescript"
+  ],
+  "author": "Your Name <you@example.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "eslint-config-prettier": "^8.0.0",
+    "eslint-plugin-import": "^2.26.0",
+    "prettier": "^2.8.0",
+    "typescript": "^5.0.0",
+    "vitest": "^0.31.0"
+  }
+}
