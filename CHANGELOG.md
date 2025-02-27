@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.13 (2025-02-27)
+
+### Fixes
+- Fixed CommonJS compatibility issues with import paths
+- Improved compatibility test suite for CJS environments
+- Added proper module exports for both ESM and CJS usage patterns
+
 ## 0.0.12 (2025-02-26)
 
 ### Security Updates

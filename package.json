@@ -1,6 +1,6 @@
 {
   "name": "unsane",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "description": "A tiny, zero-dependency, run-anywhere HTML sanitization library written in TypeScript.",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -13,7 +13,8 @@
     }
   },
   "scripts": {
-    "build": "tsc && tsc --project tsconfig.cjs.json",
+    "build": "tsc && tsc --project tsconfig.cjs.json && npm run build:compat",
+    "build:compat": "cp dist/src/index.js dist/index.js && cp dist/cjs/src/index.js dist/index.cjs",
     "test": "vitest run && node compat-test/test-runner.js",
     "test:vitest": "vitest run",
     "test:compat": "node compat-test/test-runner.js",

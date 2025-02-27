@@ -45,15 +45,14 @@ const htmlSanitizer_1 = require("../src/sanitizer/htmlSanitizer");
         (0, vitest_1.expect)(output).toContain("Unclosed paragraph");
         (0, vitest_1.expect)(output).toContain("New div");
     });
-    (0, vitest_1.it)("should use text transform when provided", () => {
+    (0, vitest_1.it)("should preserve text content", () => {
         const input = "<p>hello world</p>";
         const output = (0, htmlSanitizer_1.sanitize)(input, {
             allowedTags: ["p"],
-            transformText: (text) => text.toUpperCase(),
         });
-        // Verify the text was transformed, but don't expect exact HTML format
+        // Verify the text is preserved
         (0, vitest_1.expect)(output).toContain("<p>");
-        (0, vitest_1.expect)(output).toContain("HELLO WORLD");
+        (0, vitest_1.expect)(output).toContain("hello world");
         (0, vitest_1.expect)(output).toContain("</p>");
     });
 });

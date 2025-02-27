@@ -6,7 +6,7 @@ A tiny, zero-dependency, run-anywhere HTML sanitization library written in TypeS
 
 ## Features
 
-- **Lightweight**: ~3.1KB minified, ~1.3KB minified+gzipped
+- **Lightweight**: ~3.2KB minified, ~1.4KB minified+gzipped
 - **Zero dependencies**: Includes internal HTML entity encoder and state machine tokenizer
 - **Run anywhere**: Doesn't rely on DOM APIs, JSDOM, or Node APIs, so you can use in any environment
 - **Tiny drop-in replacement for DOMPurify**: Tested against DOMPurify's own tests with improved XSS protection
@@ -22,7 +22,11 @@ npm install unsane
 ### Basic Usage
 
 ```javascript
+// ES Modules
 import { sanitize } from 'unsane';
+
+// CommonJS
+// const { sanitize } = require('unsane');
 
 // Input: potentially malicious HTML
 const dirty = '<script>alert("xss")</script><div onclick="alert(`pwned`)">Hello</div>';
