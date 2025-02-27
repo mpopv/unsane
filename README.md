@@ -6,10 +6,11 @@ A tiny, zero-dependency, run-anywhere HTML sanitization library written in TypeS
 
 ## Features
 
-- **Tiny drop-in replacement for DOMPurify**: Tested against DOMPurify's own tests and 75% smaller.
+- **Tiny drop-in replacement for DOMPurify**: Tested against DOMPurify's own tests with improved XSS protection.
 - **Pure TypeScript**: doesn't rely on DOM APIs, JSDOM, or Node APIs, so you can use in any environment.
 - **Zero dependencies**: includes its own HTML entity encoding/decoding
-- **Ultra-lightweight**: ~14.2KB unpacked, ~5.05KB minified, ~2.06KB minified+gzipped
+- **Robust HTML parsing**: uses a state machine tokenizer for accurate HTML parsing
+- **Ultra-lightweight**: ~16KB unpacked, ~4KB minified+gzipped
 
 ## Installation
 
@@ -103,9 +104,9 @@ This library is designed to be lightweight while providing comprehensive HTML sa
 
 | Metric                 | Size         |
 | ---------------------- | ------------ |
-| Unpacked               | ~14.2 KB     |
-| Minified               | ~5.05 KB     |
-| **Minified + Gzipped** | **~2.06 KB** |
+| Unpacked               | ~38.3 KB     |
+| Minified               | ~16.03 KB    |
+| **Minified + Gzipped** | **~4 KB**    |
 
 You can check the package size yourself with:
 
@@ -134,6 +135,8 @@ Unsane is designed to protect against common XSS vectors:
 - Handles unicode escape sequences in URLs
 - Properly encodes HTML entities
 - Maintains HTML structure to prevent invalid nesting exploits
+- Properly handles HTML edge cases with state machine-based parsing
+- Robust handling of attribute values with proper quote parsing
 
 ## Compatibility Tests
 

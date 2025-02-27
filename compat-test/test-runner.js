@@ -4,8 +4,14 @@
  * Test runner for Unsane compatibility with DOMPurify
  */
 
-const path = require('path');
-const { execSync } = require('child_process');
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { execSync } from 'child_process';
+import fs from 'fs';
+
+// Get current directory in ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Define test filenames
 const compatTest = path.join(__dirname, 'compatibility-test.js');
@@ -21,7 +27,7 @@ try {
   
   // Run XSS tests if they exist
   try {
-    if (require('fs').existsSync(xssTest)) {
+    if (fs.existsSync(xssTest)) {
       console.log('\nRunning XSS prevention tests...');
       console.log('-------------------------------------------------------------');
       execSync(`node --test ${xssTest}`, { stdio: 'inherit' });

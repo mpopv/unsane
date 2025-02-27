@@ -58,7 +58,7 @@ const unsane_1 = require("../src/unsane");
         (0, vitest_1.it)("should escape only essential characters", () => {
             const input = '<img src="x" onerror="alert(\'XSS\')">';
             const result = (0, unsane_1.escape)(input);
-            (0, vitest_1.expect)(result).toBe("&lt;img src=&quot;x&quot; onerror=&quot;alert(&apos;XSS&apos;)&quot;&gt;");
+            (0, vitest_1.expect)(result).toBe("&lt;img src=&quot;x&quot; onerror=&quot;alert(&#x27;XSS&#x27;)&quot;&gt;");
         });
         (0, vitest_1.it)("should leave normal text untouched", () => {
             (0, vitest_1.expect)((0, unsane_1.escape)("Hello world")).toBe("Hello world");

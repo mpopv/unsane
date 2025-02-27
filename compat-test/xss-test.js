@@ -3,9 +3,9 @@
  * Based on selected test cases from DOMPurify's test suite
  */
 
-const { UnsanePurify, fakeWindow } = require('./dompurify-adapter');
-const assert = require('assert');
-const { describe, it } = require('node:test');
+import { UnsanePurify, fakeWindow } from './dompurify-adapter.js';
+import assert from 'assert';
+import { describe, it } from 'node:test';
 
 // Create an instance of the DOMPurify-compatible API
 const DOMPurify = UnsanePurify(fakeWindow);

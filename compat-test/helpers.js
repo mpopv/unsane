@@ -91,7 +91,7 @@ export function escape(text) {
   
   const asString = String(text);
   
-  // Standardize quote encoding (use consistent encoding for both single and double quotes)
+  // Use consistent encoding for all special characters
   return asString.replace(/["'&<>`]/g, char => {
     switch (char) {
       case '"': return "&quot;";

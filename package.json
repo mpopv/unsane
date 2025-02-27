@@ -19,7 +19,8 @@
     "lint": "eslint . --ext .ts,.js",
     "prepare": "npm run build",
     "clean": "rm -rf dist",
-    "analyze-size": "tsx measure-size.ts"
+    "analyze-size": "tsx measure-size.ts",
+    "release": "bin/release.sh"
   },
   "keywords": [
     "html",
@@ -27,7 +28,7 @@
     "security",
     "typescript"
   ],
-  "author": "mpopv <mattpopovich@outlook.com>",
+  "author": "mpopv <mattpopovich@outlook.com> (https://github.com/mpopv)",
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^18.0.0",

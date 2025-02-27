@@ -70,7 +70,7 @@ describe("htmlEntities", () => {
       const input = '<img src="x" onerror="alert(\'XSS\')">';
       const result = escape(input);
       expect(result).toBe(
-        "&lt;img src=&quot;x&quot; onerror=&quot;alert(&apos;XSS&apos;)&quot;&gt;"
+        "&lt;img src=&quot;x&quot; onerror=&quot;alert(&#x27;XSS&#x27;)&quot;&gt;"
       );
     });
 

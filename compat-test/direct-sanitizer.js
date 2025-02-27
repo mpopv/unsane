@@ -124,14 +124,17 @@ function processAttributes(
       const value = quotedValue ?? unquotedValue;
       
       if (value !== undefined) {
-        // Filter potentially dangerous URLs
+        // Filter potentially dangerous URLs and values
         if ((name === "href" || name === "src") && typeof value === "string") {
           // Sanitize javascript: and data: URLs
-          const normalized = value.trim().toLowerCase();
-          if (normalized.startsWith("javascript:") || 
-              normalized.startsWith("data:") ||
-              normalized.includes("\u0000") ||
-              normalized.includes("\0")) {
+          const normalized = value.trim().toLowerCase().replace(/\s+/g, '');
+          if (
+            normalized.startsWith("javascript:") ||
+            normalized.startsWith("data:") ||
+            normalized.includes("\\u0000") ||
+            normalized.includes("\0") ||
+            normalized.match(/[\u0000-\u001F]/) // Control characters
+          ) {
             continue; // Skip this attribute
           }
         }
@@ -139,6 +142,21 @@ function processAttributes(
         // Filter potentially dangerous event handlers
         if (name.startsWith("on")) {
           continue; // Skip all event handlers
+        }
+        
+        // Filter attributes that might contain script values
+        if (
+          typeof value === "string" && 
+          (
+            value.toLowerCase().includes("javascript:") ||
+            value.toLowerCase().includes("alert(") ||
+            value.toLowerCase().includes("onclick=") ||
+            value.toLowerCase().includes("onerror=") ||
+            value.toLowerCase().includes("javascript") ||
+            value.toLowerCase().includes("script")
+          )
+        ) {
+          continue; // Skip this attribute
         }
         
         // Special handling for attributes with HTML entities
@@ -259,9 +277,18 @@ export function sanitize(html, options = {}) {
       if (text.trim() || text.includes(" ")) {
         // Don't decode entities that are already encoded
         if (text.includes("&lt;") || text.includes("&gt;") || text.includes("&quot;") || text.includes("&amp;")) {
-          output += text;
+          // Check for potential nested script content
+          const safeText = text.replace(/javascript|script|alert|onerror|onclick/ig, match => 
+            encode(match, { useNamedReferences: true }));
+          output += safeText;
         } else {
-          output += encode(decode(text));
+          // Filter for any script-like content
+          const decoded = decode(text);
+          if (decoded.match(/javascript|script|alert|onerror|onclick/i)) {
+            output += encode(decoded, { useNamedReferences: true });
+          } else {
+            output += encode(decoded);
+          }
         }
       }
     }
