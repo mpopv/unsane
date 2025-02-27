@@ -4,7 +4,6 @@
  * Uses an inline tokenizer to parse HTML and rebuild it safely in a single pass
  */
 
-import { VOID_ELEMENTS, isDangerousAttribute } from "../tokenizer/types";
 import { DEFAULT_OPTIONS } from "./config";
 import { SanitizerOptions } from "../types";
 import { encode, decode } from "../utils/htmlEntities";
@@ -12,6 +11,21 @@ import {
   containsDangerousContent,
   sanitizeTextContent,
 } from "../utils/securityUtils";
+
+// Define void elements (tags that should be self-closing)
+const VOID_ELEMENTS = new Set([
+  'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
+  'link', 'meta', 'param', 'source', 'track', 'wbr'
+]);
+
+// Check if an attribute is considered dangerous
+function isDangerousAttribute(name: string): boolean {
+  return name.startsWith('on') || 
+         name === 'style' ||
+         name === 'formaction' || 
+         name === 'xlink:href' || 
+         name === 'action';
+}
 
 /**
  * Process and filter attributes for a tag, removing any dangerous attributes
@@ -184,7 +198,7 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
       }
 
       // Handle void elements and self-closing tags
-      if (VOID_ELEMENTS.includes(tagName) || selfClosing) {
+      if (VOID_ELEMENTS.has(tagName) || selfClosing) {
         const attrsStr = processAttributes(
           attrs,
           tagName,
@@ -210,7 +224,7 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
   function handleEndTag(tagName: string) {
     if (
       mergedOptions.allowedTags.includes(tagName) &&
-      !VOID_ELEMENTS.includes(tagName)
+      !VOID_ELEMENTS.has(tagName)
     ) {
       // Find the matching opening tag in the stack
       const index = stack.lastIndexOf(tagName);

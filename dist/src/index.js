@@ -1,4 +1,3 @@
-"use strict";
 /**
  * unsane - A lightweight, zero-dependency HTML sanitization library
  *
@@ -8,11 +7,7 @@
  * - Protection against XSS vectors
  * - Simple, streamlined API
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.decode = exports.encode = exports.escape = exports.sanitize = void 0;
-const htmlSanitizer_1 = require("./sanitizer/htmlSanitizer");
-Object.defineProperty(exports, "sanitize", { enumerable: true, get: function () { return htmlSanitizer_1.sanitize; } });
-const htmlEntities_1 = require("./utils/htmlEntities");
-Object.defineProperty(exports, "escape", { enumerable: true, get: function () { return htmlEntities_1.escape; } });
-Object.defineProperty(exports, "encode", { enumerable: true, get: function () { return htmlEntities_1.encode; } });
-Object.defineProperty(exports, "decode", { enumerable: true, get: function () { return htmlEntities_1.decode; } });
+import { sanitize } from "./sanitizer/htmlSanitizer";
+import { escape, encode, decode } from "./utils/htmlEntities";
+// Export individual functions
+export { sanitize, escape, encode, decode };

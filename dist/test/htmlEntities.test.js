@@ -1,74 +1,72 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const vitest_1 = require("vitest");
-const htmlEntities_1 = require("../src/utils/htmlEntities");
-(0, vitest_1.describe)("htmlEntities", () => {
-    (0, vitest_1.describe)("decode", () => {
-        (0, vitest_1.it)("should decode named entities", () => {
-            (0, vitest_1.expect)((0, htmlEntities_1.decode)("&lt;div&gt;")).toBe("<div>");
-            (0, vitest_1.expect)((0, htmlEntities_1.decode)("&amp;")).toBe("&");
-            (0, vitest_1.expect)((0, htmlEntities_1.decode)("&quot;")).toBe('"');
-            (0, vitest_1.expect)((0, htmlEntities_1.decode)("&apos;")).toBe("'");
+import { describe, it, expect } from "vitest";
+import { decode, encode, escape } from "../src/utils/htmlEntities";
+describe("htmlEntities", () => {
+    describe("decode", () => {
+        it("should decode named entities", () => {
+            expect(decode("&lt;div&gt;")).toBe("<div>");
+            expect(decode("&amp;")).toBe("&");
+            expect(decode("&quot;")).toBe('"');
+            expect(decode("&apos;")).toBe("'");
         });
-        (0, vitest_1.it)("should decode decimal numeric entities", () => {
-            (0, vitest_1.expect)((0, htmlEntities_1.decode)("&#60;")).toBe("<");
-            (0, vitest_1.expect)((0, htmlEntities_1.decode)("&#38;")).toBe("&");
-            (0, vitest_1.expect)((0, htmlEntities_1.decode)("&#34;")).toBe('"');
+        it("should decode decimal numeric entities", () => {
+            expect(decode("&#60;")).toBe("<");
+            expect(decode("&#38;")).toBe("&");
+            expect(decode("&#34;")).toBe('"');
         });
-        (0, vitest_1.it)("should decode hexadecimal numeric entities", () => {
-            (0, vitest_1.expect)((0, htmlEntities_1.decode)("&#x3C;")).toBe("<");
-            (0, vitest_1.expect)((0, htmlEntities_1.decode)("&#x26;")).toBe("&");
-            (0, vitest_1.expect)((0, htmlEntities_1.decode)("&#x22;")).toBe('"');
-            (0, vitest_1.expect)((0, htmlEntities_1.decode)("&#X3C;")).toBe("<"); // Capital X also works
+        it("should decode hexadecimal numeric entities", () => {
+            expect(decode("&#x3C;")).toBe("<");
+            expect(decode("&#x26;")).toBe("&");
+            expect(decode("&#x22;")).toBe('"');
+            expect(decode("&#X3C;")).toBe("<"); // Capital X also works
         });
-        (0, vitest_1.it)("should handle malformed entities", () => {
+        it("should handle malformed entities", () => {
             // Malformed entities without semicolons should remain unchanged
-            (0, vitest_1.expect)((0, htmlEntities_1.decode)("&lt")).toBe("&lt");
+            expect(decode("&lt")).toBe("&lt");
             // Unknown or invalid entities with semicolons should remain unchanged
-            (0, vitest_1.expect)((0, htmlEntities_1.decode)("&unknown;")).toBe("&unknown;");
-            (0, vitest_1.expect)((0, htmlEntities_1.decode)("&#xGHI;")).toBe("&#xGHI;");
-            (0, vitest_1.expect)((0, htmlEntities_1.decode)("&#abc;")).toBe("&#abc;");
+            expect(decode("&unknown;")).toBe("&unknown;");
+            expect(decode("&#xGHI;")).toBe("&#xGHI;");
+            expect(decode("&#abc;")).toBe("&#abc;");
         });
-        (0, vitest_1.it)("should decode multiple entities in a string", () => {
-            (0, vitest_1.expect)((0, htmlEntities_1.decode)("&lt;div&gt;Hello &amp; world!&lt;/div&gt;")).toBe("<div>Hello & world!</div>");
-        });
-    });
-    (0, vitest_1.describe)("encode", () => {
-        (0, vitest_1.it)("should encode special characters with numeric references by default", () => {
-            const result = (0, htmlEntities_1.encode)("<div>");
-            (0, vitest_1.expect)(result).toContain("&#x3C;"); // <
-            (0, vitest_1.expect)(result).toContain("&#x3E;"); // >
-        });
-        (0, vitest_1.it)("should use named references when requested", () => {
-            const result = (0, htmlEntities_1.encode)("<div>", { useNamedReferences: true });
-            (0, vitest_1.expect)(result).toBe("&lt;div&gt;");
-        });
-        (0, vitest_1.it)("should use decimal references when requested", () => {
-            const result = (0, htmlEntities_1.encode)("<div>", { decimal: true });
-            (0, vitest_1.expect)(result).toBe("&#60;div&#62;");
-        });
-        (0, vitest_1.it)("should only encode special chars by default", () => {
-            const result = (0, htmlEntities_1.encode)("Hi <there>");
-            (0, vitest_1.expect)(result).toBe("Hi &#x3C;there&#x3E;");
-        });
-        (0, vitest_1.it)("should encode everything when requested", () => {
-            const result = (0, htmlEntities_1.encode)("Hi", { encodeEverything: true });
-            (0, vitest_1.expect)(result).toBe("&#x48;&#x69;");
+        it("should decode multiple entities in a string", () => {
+            expect(decode("&lt;div&gt;Hello &amp; world!&lt;/div&gt;")).toBe("<div>Hello & world!</div>");
         });
     });
-    (0, vitest_1.describe)("escape", () => {
-        (0, vitest_1.it)("should escape only essential characters", () => {
+    describe("encode", () => {
+        it("should encode special characters with numeric references by default", () => {
+            const result = encode("<div>");
+            expect(result).toContain("&#x3C;"); // <
+            expect(result).toContain("&#x3E;"); // >
+        });
+        it("should use named references when requested", () => {
+            const result = encode("<div>", { useNamedReferences: true });
+            expect(result).toBe("&lt;div&gt;");
+        });
+        it("should use decimal references when requested", () => {
+            const result = encode("<div>", { decimal: true });
+            expect(result).toBe("&#60;div&#62;");
+        });
+        it("should only encode special chars by default", () => {
+            const result = encode("Hi <there>");
+            expect(result).toBe("Hi &#x3C;there&#x3E;");
+        });
+        it("should encode everything when requested", () => {
+            const result = encode("Hi", { encodeEverything: true });
+            expect(result).toBe("&#x48;&#x69;");
+        });
+    });
+    describe("escape", () => {
+        it("should escape only essential characters", () => {
             const input = '<img src="x" onerror="alert(\'XSS\')">';
-            const result = (0, htmlEntities_1.escape)(input);
-            (0, vitest_1.expect)(result).toBe("&lt;img src=&quot;x&quot; onerror=&quot;alert(&#x27;XSS&#x27;)&quot;&gt;");
+            const result = escape(input);
+            expect(result).toBe("&lt;img src=&quot;x&quot; onerror=&quot;alert(&#x27;XSS&#x27;)&quot;&gt;");
         });
-        (0, vitest_1.it)("should leave normal text untouched", () => {
-            (0, vitest_1.expect)((0, htmlEntities_1.escape)("Hello world")).toBe("Hello world");
+        it("should leave normal text untouched", () => {
+            expect(escape("Hello world")).toBe("Hello world");
         });
-        (0, vitest_1.it)("should handle all escapable characters", () => {
+        it("should handle all escapable characters", () => {
             const input = "&<>\"'`";
-            const result = (0, htmlEntities_1.escape)(input);
-            (0, vitest_1.expect)(result).toBe("&amp;&lt;&gt;&quot;&#x27;&#x60;");
+            const result = escape(input);
+            expect(result).toBe("&amp;&lt;&gt;&quot;&#x27;&#x60;");
         });
     });
 });
