@@ -6,11 +6,10 @@ A tiny, zero-dependency, run-anywhere HTML sanitization library written in TypeS
 
 ## Features
 
+- **Lightweight**: ~16KB unpacked, ~4KB minified+gzipped
+- **Zero dependencies**: Includes internal HTML entity encoder and state machine tokenizer.
+- **Run anywhere**: Doesn't rely on DOM APIs, JSDOM, or Node APIs, so you can use in any environment.
 - **Tiny drop-in replacement for DOMPurify**: Tested against DOMPurify's own tests with improved XSS protection.
-- **Pure TypeScript**: doesn't rely on DOM APIs, JSDOM, or Node APIs, so you can use in any environment.
-- **Zero dependencies**: includes its own HTML entity encoding/decoding
-- **Robust HTML parsing**: uses a state machine tokenizer for accurate HTML parsing
-- **Ultra-lightweight**: ~16KB unpacked, ~4KB minified+gzipped
 
 ## Installation
 
@@ -102,11 +101,11 @@ const clean = DOMPurify.sanitize('<script>alert("xss")</script>');
 
 This library is designed to be lightweight while providing comprehensive HTML sanitization:
 
-| Metric                 | Size         |
-| ---------------------- | ------------ |
-| Unpacked               | ~38.3 KB     |
-| Minified               | ~16.03 KB    |
-| **Minified + Gzipped** | **~4 KB**    |
+| Metric                 | Size      |
+| ---------------------- | --------- |
+| Unpacked               | ~38.3 KB  |
+| Minified               | ~16.03 KB |
+| **Minified + Gzipped** | **~4 KB** |
 
 You can check the package size yourself with:
 
