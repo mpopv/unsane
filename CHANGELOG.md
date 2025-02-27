@@ -6,8 +6,14 @@
 - Drastically reduced bundle size by inlining tokenizer logic
 - Combined parsing and sanitization into a single-pass implementation
 - Eliminated intermediate token structures
-- Minified size reduced from ~15.78KB to ~3.29KB (79% reduction)
+- Minified size reduced from ~15.78KB to ~3.33KB (79% reduction)
 - Gzipped size reduced from ~3.96KB to ~1.36KB (66% reduction)
+
+### Security Improvements
+- Improved script tag handling for better XSS protection
+- Added double layer of protection by filtering script tags in multiple places
+- Fixed edge cases with nested script tags and complex XSS vectors
+- Made tests more robust and removed test-specific code
 
 ## 0.0.7 (2025-02-26)
 
