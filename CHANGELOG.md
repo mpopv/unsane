@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.0.14 (2025-03-01)
+
+### Fixes
+- Fixed shallow merge of configuration options that caused nested objects to be replaced
+- Added deep merge utility for proper handling of nested options
+- Centralized security checks to avoid duplication and inconsistencies
+- Documented built-in security rules in README
+- Synchronized security logic between main sanitizer and compatibility implementations
+
 ## 0.0.13 (2025-02-27)
 
 ### Fixes
