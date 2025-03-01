@@ -1,10 +1,55 @@
 /**
  * Direct implementation of sanitize for compatibility testing
  * Using the inlined tokenizer approach for better performance
+ * 
+ * IMPORTANT: This file should mirror the implementation in src/sanitizer/htmlSanitizer.ts
+ * Any security fixes or improvements should be made in both places
+ * until a proper refactoring merges these implementations.
  */
 
 import { decode, encode, escape } from './helpers.js';
 import { DEFAULT_OPTIONS } from './shared-config.js';
+
+// Deep merge function for properly handling nested options
+function deepMerge(target, source) {
+  // If source is undefined or null, return a copy of target
+  if (!source) {
+    return { ...target };
+  }
+
+  // Create a new object to avoid mutating either input
+  const result = { ...target };
+
+  // Iterate through source properties
+  for (const key in source) {
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
+      const sourceValue = source[key];
+      const targetValue = target[key];
+
+      // Handle null case
+      if (sourceValue === null) {
+        result[key] = null;
+        continue;
+      }
+
+      // If both values are objects and not arrays, merge them recursively
+      if (
+        typeof sourceValue === 'object' && 
+        !Array.isArray(sourceValue) &&
+        typeof targetValue === 'object' && 
+        !Array.isArray(targetValue) &&
+        targetValue !== null
+      ) {
+        result[key] = deepMerge(targetValue, sourceValue);
+      } else {
+        // For arrays and primitives, replace the value
+        result[key] = sourceValue;
+      }
+    }
+  }
+
+  return result;
+}
 
 /**
  * Unified security checker - checks if an attribute is safe
@@ -67,6 +112,8 @@ function checkAttributeSafety(name, value) {
       normalized.match(/[\u0000-\u001F]/) || // Control characters
       normalized.includes("\u200C") || // Zero-width non-joiner
       normalized.includes("\u200D") || // Zero-width joiner
+      normalized.includes("\u2028") || // Line separator
+      normalized.includes("\u2029") || // Paragraph separator
       normalized.includes("\uFEFF")    // Zero-width no-break space
   ) {
     return { safe: false, reason: "control-chars" };
@@ -109,13 +156,7 @@ function processAttributes(
     
     // Add the attribute to the output
     if (value) {
-      // Special handling for attributes with HTML entities
-      if (lowerName === "title" && value.includes("&quot;")) {
-        // Keep the original entity encoding
-        result += ` ${lowerName}="${value}"`;
-      } else {
-        result += ` ${lowerName}="${encode(value, { escapeOnly: true })}"`;
-      }
+      result += ` ${lowerName}="${encode(value, { escapeOnly: true })}"`;
     } else {
       result += ` ${lowerName}`;
     }
@@ -125,14 +166,26 @@ function processAttributes(
 }
 
 /**
+ * Sanitizes text content by encoding dangerous patterns
+ */
+function sanitizeTextContent(text) {
+  if (!text) return "";
+
+  // Simple regex pattern for common dangerous strings
+  const dangerousPattern =
+    /javascript|script|alert|eval|onerror|onclick|on\w+\s*=|\(\s*\)|function/gi;
+
+  return text.replace(dangerousPattern, (match) =>
+    encode(match, { useNamedReferences: true })
+  );
+}
+
+/**
  * Main sanitizer function using the inline tokenizer approach
  */
 export function sanitize(html, options = {}) {
-  // Merge default options with user options
-  const mergedOptions = { ...DEFAULT_OPTIONS, ...options };
-  
-  // Convert allowedTags array to Set for faster lookups
-  const allowedTagsSet = new Set(mergedOptions.allowedTags);
+  // Deep merge for proper handling of nested objects
+  const mergedOptions = deepMerge(DEFAULT_OPTIONS, options);
   
   // Stack for tracking open tags
   const stack = [];
@@ -183,13 +236,7 @@ export function sanitize(html, options = {}) {
         
         // Decode any entities, then sanitize and re-encode
         const decoded = decode(cleanText);
-        
-        // Check for potentially dangerous content
-        if (decoded.match(/javascript|script|alert|onerror|onclick|on\w+\s*=|\(\s*\)|function/i)) {
-          output += encode(decoded, { useNamedReferences: true });
-        } else {
-          output += encode(decoded);
-        }
+        output += sanitizeTextContent(decoded);
       }
       
       textBuffer = '';
@@ -203,7 +250,7 @@ export function sanitize(html, options = {}) {
       return;
     }
     
-    if (allowedTagsSet.has(tagName)) {
+    if (mergedOptions.allowedTags.includes(tagName)) {
       // Special handling for HTML structure - div inside p is invalid HTML
       if (tagName === "div" && stack.includes("p")) {
         const pIndex = stack.lastIndexOf("p");
@@ -242,7 +289,7 @@ export function sanitize(html, options = {}) {
   
   // Function to handle an end tag
   function handleEndTag(tagName) {
-    if (allowedTagsSet.has(tagName) && !VOID_ELEMENTS.has(tagName)) {
+    if (mergedOptions.allowedTags.includes(tagName) && !VOID_ELEMENTS.has(tagName)) {
       // Find the matching opening tag in the stack
       const index = stack.lastIndexOf(tagName);
       

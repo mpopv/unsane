@@ -3,12 +3,12 @@
  * This file exists to allow ESM compatibility tests to use the same defaults
  * as the main library without module system mismatches.
  * 
- * During build optimizations, we identified that having duplicate DEFAULT_OPTIONS
- * negatively impacts bundle size, so we maintain this file to keep configurations
- * aligned while working around ESM/CJS interoperability limitations.
+ * IMPORTANT: This file should be a direct copy of the default options from
+ * /src/sanitizer/config.ts. Do not modify this file directly! Instead, update
+ * the canonical configuration in config.ts and then sync this file to match.
  * 
- * IMPORTANT: If you change the configuration in /src/sanitizer/config.ts,
- * make sure to update this file as well to keep them in sync.
+ * The duplication issue will be addressed in a future refactoring that eliminates
+ * the need for this duplicate configuration.
  */
 
 export const DEFAULT_OPTIONS = {
@@ -45,7 +45,7 @@ export const DEFAULT_OPTIONS = {
     img: ["src", "srcset", "alt", "title", "width", "height", "loading"],
     
     // Global attributes
-    "*": ["id", "class"]
+    "*": ["id", "class", "title"]
   },
   
   // Always self-closing

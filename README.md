@@ -63,6 +63,17 @@ const clean = sanitize(dirty, options);
 // -> '<a href="https://example.com">Link</a>'
 ```
 
+#### Important Notes on Configuration
+
+The sanitizer has certain built-in security rules:
+
+- Event handler attributes (those starting with `on`, like `onclick`) are always removed
+- The `style` attribute is always removed to prevent CSS-based attacks
+- JavaScript URLs and other dangerous protocols in links are blocked
+- Some attributes like `formaction` that can execute code are always removed
+
+If you provide a partial configuration, it will be deeply merged with the defaults, rather than replacing them entirely.
+
 ### HTML Entity Functions
 
 ```javascript

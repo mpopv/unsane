@@ -8,24 +8,16 @@ import { DEFAULT_OPTIONS } from "./config";
 import { SanitizerOptions } from "../types";
 import { encode, decode } from "../utils/htmlEntities";
 import {
-  containsDangerousContent,
+  checkAttributeSafety,
   sanitizeTextContent,
 } from "../utils/securityUtils";
+import { deepMerge } from "../utils/deepMerge";
 
 // Define void elements (tags that should be self-closing)
 const VOID_ELEMENTS = new Set([
   'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
   'link', 'meta', 'param', 'source', 'track', 'wbr'
 ]);
-
-// Check if an attribute is considered dangerous
-function isDangerousAttribute(name: string): boolean {
-  return name.startsWith('on') || 
-         name === 'style' ||
-         name === 'formaction' || 
-         name === 'xlink:href' || 
-         name === 'action';
-}
 
 /**
  * Process and filter attributes for a tag, removing any dangerous attributes
@@ -46,8 +38,8 @@ function processAttributes(
   // Get global attributes (allowed for all tags)
   const globalAttrs = allowedAttributesMap["*"] || [];
 
-  // Combine the two lists
-  const allowedAttrs = [...tagAllowedAttrs, ...globalAttrs];
+  // Use Set for faster lookups
+  const allowedAttrs = new Set([...tagAllowedAttrs, ...globalAttrs]);
 
   let result = "";
 
@@ -55,42 +47,17 @@ function processAttributes(
   for (const [name, value] of attrs) {
     const lowerName = name.toLowerCase();
 
-    // Skip the attribute if it's not in the allowlist or it's a dangerous attribute pattern
-    if (!allowedAttrs.includes(lowerName) || isDangerousAttribute(lowerName)) {
+    // Skip attributes not in the allowlist
+    if (!allowedAttrs.has(lowerName)) {
       continue;
     }
 
-    // Always remove event handlers and style attributes - they're too risky
-    if (lowerName.startsWith("on") || lowerName === "style") {
+    // Use the unified security check from securityUtils
+    const securityCheck = checkAttributeSafety(lowerName, value);
+    
+    // Skip unsafe attributes
+    if (!securityCheck.safe) {
       continue;
-    }
-
-    // Filter attributes with dangerous URLs or values
-    if (value && containsDangerousContent(value)) {
-      // Remove the attribute completely for href/src/etc.
-      if (
-        lowerName === "href" ||
-        lowerName === "src" ||
-        lowerName === "action" ||
-        lowerName === "formaction" ||
-        lowerName === "xlink:href"
-      ) {
-        continue;
-      }
-
-      // For other attributes, try to sanitize the value
-      // but remove any that still look suspicious
-      if (
-        value.toLowerCase().includes("javascript") ||
-        value.toLowerCase().includes("script") ||
-        value.toLowerCase().includes("alert") ||
-        value.split("").some((char) => {
-          const code = char.charCodeAt(0);
-          return code <= 0x1f || (code >= 0x200c && code <= 0x200f);
-        })
-      ) {
-        continue;
-      }
     }
 
     // Add the attribute to the output
@@ -112,8 +79,8 @@ function processAttributes(
  * @returns Sanitized HTML string
  */
 export function sanitize(html: string, options?: SanitizerOptions): string {
-  // Merge default options with user options
-  const mergedOptions = { ...DEFAULT_OPTIONS, ...options };
+  // Use deep merge to properly handle nested objects like allowedAttributes
+  const mergedOptions = deepMerge(DEFAULT_OPTIONS, options);
 
   // Stack for tracking open tags
   const stack: string[] = [];
