@@ -20,7 +20,7 @@ export function deepMerge<T extends Record<string, any>>(
   }
 
   // Create a new object to avoid mutating either input
-  const result = { ...target };
+  const result: Record<string, any> = { ...target };
 
   // Iterate through source properties
   for (const key in source) {
@@ -50,5 +50,5 @@ export function deepMerge<T extends Record<string, any>>(
     }
   }
 
-  return result;
+  return result as T;
 }
