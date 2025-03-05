@@ -13,11 +13,11 @@ export interface EncodeOptions {
 // Only these protocols are allowed (allowlist approach)
 export const ALLOWED_PROTOCOLS = new Set([
   "http:",
-  "https:", 
+  "https:",
   "mailto:",
   "tel:",
-  "ftp:", 
-  "sms:"
+  "ftp:",
+  "sms:",
 ]);
 
 // List of dangerous content patterns
@@ -25,9 +25,9 @@ export const DANGEROUS_CONTENT = [
   // Code execution
   "javascript",
   "eval(",
-  "new Function",
-  "setTimeout(",
-  "setInterval(",
+  "newfunction",
+  "settimeout(",
+  "setinterval(",
 
   // XSS common vectors
   "alert(",
@@ -53,13 +53,30 @@ export const DANGEROUS_CONTENT = [
 export function containsDangerousContent(value: string): boolean {
   if (!value) return false;
 
+  // Check for control characters and Unicode obfuscation first (before normalization)
+  if (
+    value.includes("\\u0000") ||
+    value.includes("\u0000") || // Actual null character
+    // Control characters
+    value.split("").some((char) => {
+      const code = char.charCodeAt(0);
+      return code <= 0x1f || (code >= 0x7f && code <= 0x9f);
+    }) ||
+    // Check for zero-width characters used for obfuscation
+    value.includes(String.fromCodePoint(0x200c)) || // Zero-width non-joiner
+    value.includes(String.fromCodePoint(0x200d)) || // Zero-width joiner
+    value.includes(String.fromCodePoint(0xfeff)) // Zero-width no-break space
+  ) {
+    return true;
+  }
+
   // Normalize for comparison
   const normalized = value.toLowerCase().replace(/\s+/g, "");
 
   // Check for URL protocols and only allow from our explicit allowlist
   const protocolMatch = normalized.match(/^([a-z0-9.+-]+):/i);
   if (protocolMatch) {
-    const protocol = protocolMatch[1].toLowerCase() + ':';
+    const protocol = protocolMatch[1].toLowerCase() + ":";
     // If a protocol is found but it's not in our allowlist, reject it
     if (!ALLOWED_PROTOCOLS.has(protocol)) {
       return true;
@@ -68,26 +85,9 @@ export function containsDangerousContent(value: string): boolean {
 
   // Check for dangerous content patterns
   for (const pattern of DANGEROUS_CONTENT) {
-    if (normalized.includes(pattern.toLowerCase())) {
+    if (normalized.includes(pattern)) {
       return true;
     }
-  }
-
-  // Check for control characters and Unicode obfuscation
-  if (
-    normalized.includes("\\u0000") ||
-    normalized.includes("\u0000") || // Actual null character
-    // Control characters
-    normalized.split("").some((char) => {
-      const code = char.charCodeAt(0);
-      return code <= 0x1f || (code >= 0x7f && code <= 0x9f);
-    }) ||
-    // Check for zero-width characters used for obfuscation
-    normalized.includes(String.fromCodePoint(0x200c)) || // Zero-width non-joiner
-    normalized.includes(String.fromCodePoint(0x200d)) || // Zero-width joiner
-    normalized.includes(String.fromCodePoint(0xfeff)) // Zero-width no-break space
-  ) {
-    return true;
   }
 
   return false;

@@ -15,9 +15,7 @@
   "scripts": {
     "build": "tsc && tsc --project tsconfig.cjs.json && npm run build:compat",
     "build:compat": "cp dist/src/index.js dist/index.js && cp dist/cjs/src/index.js dist/index.cjs",
-    "test": "vitest run",
-    "test:vitest": "vitest run",
-    "test:ui": "vitest",
+    "test": "vitest run --coverage",
     "lint": "eslint . --ext .ts,.js",
     "prepare": "npm run build",
     "clean": "rm -rf dist",
@@ -42,8 +40,9 @@
   "homepage": "https://github.com/mpopv/unsane#readme",
   "devDependencies": {
     "@types/node": "^22.13.9",
-    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.26.0",
     "@typescript-eslint/parser": "^8.26.0",
+    "@vitest/coverage-v8": "^3.0.7",
     "eslint": "^9.21.0",
     "eslint-config-prettier": "^8.0.0",
     "eslint-plugin-import": "^2.26.0",
