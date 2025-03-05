@@ -28,9 +28,14 @@ npm version "$VERSION" -m "chore: release v%s"
 git push origin main --follow-tags
 
 # Create GitHub release (requires GitHub CLI, 'gh')
-gh release create "v$VERSION" \
-  --title "v$VERSION" \
-  --notes "Release $VERSION"
+if command -v gh &> /dev/null; then
+  gh release create "v$VERSION" \
+    --title "v$VERSION" \
+    --notes "Release $VERSION"
+else
+  echo "GitHub CLI not found. Skipping GitHub release creation."
+  echo "Consider installing GitHub CLI and creating release manually."
+fi
 
 # Publish to npm
 npm publish --access public
