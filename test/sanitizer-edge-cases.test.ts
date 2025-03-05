@@ -98,4 +98,42 @@ describe("HTML Sanitizer Edge Cases", () => {
       expect(output).toBe("<div>before>after</div>");
     });
   });
+
+  it("should handle malformed tags and attributes", () => {
+    // Test malformed opening tag
+    expect(sanitize("<a<b>test</b>")).toBe("<b>test</b>");
+
+    // Test malformed attributes
+    expect(sanitize('<div ="value">test</div>')).toBe("<div>test</div>");
+    expect(sanitize('<div attr=">test</div>')).toBe("<div>test</div>");
+    expect(sanitize('<div attr="value>test</div>')).toBe("<div>test</div>");
+
+    // Test unquoted attribute values
+    expect(sanitize("<div attr=value>test</div>")).toBe(
+      '<div attr="value">test</div>'
+    );
+
+    // Test self-closing without space
+    expect(sanitize("<div/>test")).toBe("<div />test");
+
+    // Test attributes without values
+    expect(sanitize("<div checked disabled>test</div>")).toBe(
+      "<div checked disabled>test</div>"
+    );
+  });
+
+  it("should handle edge cases in attribute values", () => {
+    // Test empty attribute values
+    expect(sanitize('<div attr="">test</div>')).toBe('<div attr="">test</div>');
+
+    // Test whitespace in attribute values
+    expect(sanitize('<div attr = "value">test</div>')).toBe(
+      '<div attr="value">test</div>'
+    );
+
+    // Test multiple spaces between attributes
+    expect(
+      sanitize('<div  attr1  =  "value1"   attr2  =  "value2"  >test</div>')
+    ).toBe('<div attr1="value1" attr2="value2">test</div>');
+  });
 });

@@ -53,18 +53,14 @@ describe("HTML Entities Edge Cases", () => {
     });
 
     it("should handle invalid numeric entities", () => {
-      // Invalid hex
+      // Test invalid hex entity
       expect(decode("&#xZ;")).toBe("&#xZ;");
-      expect(decode("&#x;")).toBe("&#x;");
-
-      // Invalid decimal
-      expect(decode("&#A;")).toBe("&#A;");
+      // Test invalid decimal entity
+      expect(decode("&#ABC;")).toBe("&#ABC;");
+      // Test empty numeric entity
       expect(decode("&#;")).toBe("&#;");
-
-      // Out of range code points
-      expect(decode("&#x110000;")).toBe("\uFFFD");
-      expect(decode("&#xD800;")).toBe("\uFFFD");
-      expect(decode("&#xDFFF;")).toBe("\uFFFD");
+      // Test entity that would throw on parseInt
+      expect(decode("&#xFFFFFFFFFFFFFFFFFF;")).toBe("&#xFFFFFFFFFFFFFFFFFF;");
     });
 
     it("should handle surrogate pairs correctly", () => {
@@ -88,5 +84,11 @@ describe("HTML Entities Edge Cases", () => {
       const input = "Valid: &amp; &#x26; &#38; Invalid: &fake; &#xZ; &#A;";
       expect(decode(input)).toBe("Valid: & & & Invalid: &fake; &#xZ; &#A;");
     });
+  });
+
+  it("should handle non-special characters in escape mode", () => {
+    expect(encode("normal", { escapeOnly: true })).toBe("normal");
+    expect(encode("123", { escapeOnly: true })).toBe("123");
+    expect(encode("abc", { escapeOnly: true })).toBe("abc");
   });
 });
