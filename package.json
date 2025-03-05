@@ -15,9 +15,8 @@
   "scripts": {
     "build": "tsc && tsc --project tsconfig.cjs.json && npm run build:compat",
     "build:compat": "cp dist/src/index.js dist/index.js && cp dist/cjs/src/index.js dist/index.cjs",
-    "test": "vitest run && node compat-test/test-runner.js",
+    "test": "vitest run",
     "test:vitest": "vitest run",
-    "test:compat": "node compat-test/test-runner.js",
     "test:ui": "vitest",
     "lint": "eslint . --ext .ts,.js",
     "prepare": "npm run build",

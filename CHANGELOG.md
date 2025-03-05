@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.14 (2025-03-04)
+
+### Changes
+- Removed DOMPurify adapter and compatibility tests
+
 ## 0.0.13 (2025-02-27)
 
 ### Fixes
