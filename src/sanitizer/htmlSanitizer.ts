@@ -14,17 +14,31 @@ import {
 
 // Define void elements (tags that should be self-closing)
 const VOID_ELEMENTS = new Set([
-  'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
-  'link', 'meta', 'param', 'source', 'track', 'wbr'
+  "area",
+  "base",
+  "br",
+  "col",
+  "embed",
+  "hr",
+  "img",
+  "input",
+  "link",
+  "meta",
+  "param",
+  "source",
+  "track",
+  "wbr",
 ]);
 
 // Check if an attribute is considered dangerous
 function isDangerousAttribute(name: string): boolean {
-  return name.startsWith('on') || 
-         name === 'style' ||
-         name === 'formaction' || 
-         name === 'xlink:href' || 
-         name === 'action';
+  return (
+    name.startsWith("on") ||
+    name === "style" ||
+    name === "formaction" ||
+    name === "xlink:href" ||
+    name === "action"
+  );
 }
 
 /**
@@ -57,11 +71,6 @@ function processAttributes(
 
     // Skip the attribute if it's not in the allowlist or it's a dangerous attribute pattern
     if (!allowedAttrs.includes(lowerName) || isDangerousAttribute(lowerName)) {
-      continue;
-    }
-
-    // Always remove event handlers and style attributes - they're too risky
-    if (lowerName.startsWith("on") || lowerName === "style") {
       continue;
     }
 

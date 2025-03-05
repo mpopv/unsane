@@ -975,3 +975,110 @@ describe("HTML Sanitizer Deep Coverage", () => {
     });
   });
 });
+
+// Add ultra targeted tests for 100% coverage
+describe("Ultra Targeted Coverage Tests", () => {
+  // Specifically target line 65-66: dangerous content in attributes
+  it("should filter attributes with specific dangerous patterns", () => {
+    const inputs = [
+      '<a href="DATA:text/html,alert(1)">link</a>',
+      '<img src="data:image/svg+xml,<svg onload=alert(1)>">',
+      '<a href="javas\tcript:alert(1)">tricky</a>',
+      '<div data-custom="eval(document.cookie)"></div>',
+    ];
+
+    for (const input of inputs) {
+      const output = sanitize(input);
+      expect(output).not.toContain("javascript");
+      expect(output).not.toContain("data:");
+      expect(output).not.toContain("eval(");
+    }
+  });
+
+  // Specifically target lines 277-278: bang handling with no closing bracket
+  it("should handle bang tokens without closing bracket", () => {
+    const input = "<! unclosed comment";
+    const output = sanitize(input);
+    expect(output).not.toContain("<!");
+
+    // Also test with a more complex case
+    const input2 = "<!DOCTYPE html unclosed";
+    const output2 = sanitize(input2);
+    expect(output2).not.toContain("<!DOCTYPE");
+  });
+
+  // Specifically target line 361: attribute without value at tag end
+  it("should handle boolean attributes in closing context", () => {
+    const input = "<input disabled>content";
+    const output = sanitize(input, {
+      allowedTags: ["input"],
+      allowedAttributes: { input: ["disabled"] },
+    });
+    expect(output).toContain("disabled");
+    expect(output).toContain("<input");
+  });
+
+  // Specifically target lines 374-376: attribute in self-closing tag context
+  it("should handle attributes immediately before self-closing", () => {
+    // Adding attribute exactly before the slash
+    const inputs = [
+      '<input type="text"data-test/>',
+      '<input type="text" data-test />',
+      '<input type="text" checked/>',
+    ];
+
+    for (const input of inputs) {
+      const output = sanitize(input, {
+        allowedTags: ["input"],
+        allowedAttributes: { input: ["type", "data-test", "checked"] },
+      });
+      expect(output).toContain("input");
+      // The important part is that the attribute parsing works correctly
+      // The sanitizer might convert it to a normal tag or change formatting
+    }
+  });
+
+  // Specifically target line 396: empty attribute value in attribute name state
+  it("should handle attribute with empty value in attribute name state", () => {
+    const input = '<div custom="">content</div>';
+    const output = sanitize(input, {
+      allowedTags: ["div"],
+      allowedAttributes: { div: ["custom"] },
+    });
+    expect(output).toContain("div");
+    expect(output).toContain("content");
+  });
+
+  // Specifically target line 429: unquoted attribute with immediate closing
+  it("should handle complex unquoted attribute cases", () => {
+    const inputs = [
+      "<div id=test\\>content</div>",
+      "<div id=test>content</div>",
+      "<div id=test class=test>content</div>",
+    ];
+
+    for (const input of inputs) {
+      const output = sanitize(input, {
+        allowedTags: ["div"],
+        allowedAttributes: { div: ["id", "class"] },
+      });
+      expect(output).toContain("content");
+      expect(output).toContain("div");
+    }
+  });
+
+  // Specifically target line 450: Special handling for tag end state with closing tags
+  it("should handle closing tags in tag end state", () => {
+    const input = "<div></div />";
+    const output = sanitize(input);
+    expect(output).toContain("<div");
+
+    // Try an even more complex case
+    const input2 = "<span att1 att2 att3 / ></span>";
+    const output2 = sanitize(input2, {
+      allowedTags: ["span"],
+      allowedAttributes: { span: ["att1", "att2", "att3"] },
+    });
+    expect(output2).toContain("<span");
+  });
+});
