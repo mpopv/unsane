@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { sanitize } from "../src/sanitizer/htmlSanitizer";
-import { encode, decode } from "../src/utils/htmlEntities";
+import { sanitize } from "../htmlSanitizer";
+import { encode, decode } from "../../utils/htmlEntities";
 
 // Final push to get 100% coverage
 describe("Final Coverage Push", () => {

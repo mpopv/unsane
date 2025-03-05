@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { sanitize } from "../src/sanitizer/htmlSanitizer";
+import { sanitize } from "../htmlSanitizer";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -42,10 +42,7 @@ describe("Instrumented Coverage Tests", () => {
     }
 
     // Read the original file
-    const originalFile = path.join(
-      __dirname,
-      "../src/sanitizer/htmlSanitizer.ts"
-    );
+    const originalFile = path.join(__dirname, "../htmlSanitizer.ts");
     const originalCode = fs.readFileSync(originalFile, "utf8");
 
     // Create a modified version that exposes internal functions for testing

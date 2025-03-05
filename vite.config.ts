@@ -10,8 +10,8 @@ export default defineConfig({
       reporter: ["text", "json", "html"],
       include: ["src/**/*.ts"],
       exclude: [
-        "src/**/*.test.ts",
-        "src/**/*.spec.ts",
+        "**/*.test.ts",
+        "**/*.spec.ts",
         "src/types.ts", // Exclude type definitions
       ],
       thresholds: {

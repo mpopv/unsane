@@ -5,7 +5,7 @@ import {
   ALLOWED_PROTOCOLS,
   EncodeOptions,
   DANGEROUS_CONTENT,
-} from "../src/utils/securityUtils";
+} from "./securityUtils";
 
 describe("Security Utils", () => {
   describe("containsDangerousContent", () => {
@@ -34,9 +34,6 @@ describe("Security Utils", () => {
     it("should detect dangerous content patterns", () => {
       // Test each pattern from DANGEROUS_CONTENT array
       for (const pattern of DANGEROUS_CONTENT) {
-        console.log(`Testing pattern: "${pattern}"`);
-        const result = containsDangerousContent(pattern);
-        console.log(`Result for "${pattern}": ${result}`);
         expect(containsDangerousContent(pattern)).toBe(true);
         // Also test with content around it if it doesn't end with special chars
         if (

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { sanitize, escape, encode, decode } from "../src/index";
-import type { SanitizerOptions, Sanitizer } from "../src/index";
+import { sanitize, escape, encode, decode } from "./index";
+import type { SanitizerOptions, Sanitizer } from "./index";
 
 describe("Library exports", () => {
   it("should export all required functions", () => {

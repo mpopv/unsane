@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { sanitize } from "../src/sanitizer/htmlSanitizer";
-import { encode, decode } from "../src/utils/htmlEntities";
-import { containsDangerousContent } from "../src/utils/securityUtils";
+import { sanitize } from "../htmlSanitizer";
+import { encode, decode } from "../../utils/htmlEntities";
+import { containsDangerousContent } from "../../utils/securityUtils";
 
 // This test file focuses EXCLUSIVELY on the remaining uncovered lines
 describe("Absolute 100% Coverage Tests", () => {
