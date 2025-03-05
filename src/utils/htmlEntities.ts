@@ -101,8 +101,6 @@ export function encode(text: string, options: EncodeOptions = {}): string {
           return "&gt;";
         case "`":
           return "&#x60;";
-        default:
-          return char;
       }
     }
 
@@ -150,8 +148,9 @@ export function decode(text: string): string {
         if (isNaN(codePoint)) return match;
 
         return codePointToString(codePoint);
-      } catch (e) {
+      } /* c8 ignore next */ catch (e) {
         return match;
+        /* c8 ignore next */
       }
     }
 
