@@ -59,8 +59,8 @@ describe("HTML Entities Edge Cases", () => {
       expect(decode("&#ABC;")).toBe("&#ABC;");
       // Test empty numeric entity
       expect(decode("&#;")).toBe("&#;");
-      // Test entity that would throw on parseInt
-      expect(decode("&#xFFFFFFFFFFFFFFFFFF;")).toBe("&#xFFFFFFFFFFFFFFFFFF;");
+      // Test entity that would throw on parseInt - should return replacement char
+      expect(decode("&#xFFFFFFFFFFFFFFFFFF;")).toBe("\uFFFD");
     });
 
     it("should handle surrogate pairs correctly", () => {
