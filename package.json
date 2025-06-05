@@ -56,5 +56,8 @@
     "tsx": "^4.19.3",
     "typescript": "^5.0.0",
     "vitest": "^3.0.7"
+  },
+  "bin": {
+    "unsane": "./bin/unsane"
   }
 }
