@@ -51,8 +51,11 @@ const options = {
   allowedAttributes: {
     a: ["href", "target"],
     img: ["src", "alt", "width", "height"],
-    "*": ["id", "class"], // Attributes allowed on all elements
+  "*": ["id", "class"], // Attributes allowed on all elements
   },
+
+  // Allowed URL schemes for href/src attributes
+  allowedProtocols: ["http:", "https:", "mailto:"]
 };
 
 const dirty =
@@ -60,6 +63,14 @@ const dirty =
 const clean = sanitize(dirty, options);
 // -> '<a href="https://example.com">Link</a>'
 ```
+
+Available options:
+
+- `allowedTags` – array of tag names that are kept in the sanitized output.
+- `allowedAttributes` – object mapping tag names to allowed attributes. Use
+  `"*"` for attributes allowed on all tags.
+- `allowedProtocols` – array of URL protocols allowed in attributes like
+  `href` or `src`.
 
 ### HTML Entity Functions
 
