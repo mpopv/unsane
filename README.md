@@ -112,6 +112,12 @@ Unsane is designed to protect against common XSS vectors:
 
 Works in all modern browsers as well as Node.js environments. No DOM or browser APIs are required.
 
+## Contributing
+
+Please see [CONTRIBUTING.md](CONTRIBUTING.md) for instructions on setting up the project and running tests. The `dist` directory is generated and should not be committed.
+
+
 ## License
 
 MIT
+
