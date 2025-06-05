@@ -16,7 +16,7 @@
     "build": "tsc && tsc --project tsconfig.cjs.json && npm run build:compat",
     "build:compat": "cp dist/src/index.js dist/index.js && cp dist/cjs/src/index.js dist/index.cjs",
     "test": "vitest run --coverage",
-    "lint": "eslint . --ext .ts,.js",
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint -c .eslintrc.cjs . --ext .ts,.js",
     "prepare": "npm run build",
     "clean": "rm -rf dist",
     "analyze-size": "tsx measure-size.ts",
