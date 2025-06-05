@@ -48,9 +48,16 @@ async function minifyCode(
     const tempOutputPath = `${filePath}.min.js`;
 
     // Run terser with subprocess to avoid memory issues
-    execSync(
-      `npx terser ${filePath} --compress --mangle --output ${tempOutputPath}`
-    );
+    try {
+      execSync(
+        `npx terser ${filePath} --compress --mangle --output ${tempOutputPath}`
+      );
+    } catch (execError) {
+      const msg =
+        execError instanceof Error ? execError.message : String(execError);
+      console.error(`Minification failed for ${filePath}: ${msg}`);
+      throw execError;
+    }
 
     // Read the minified file
     const minified = await readFile(tempOutputPath, "utf8");
@@ -66,6 +73,7 @@ async function minifyCode(
     return { minified, size, gzipSize };
   } catch (error) {
     console.error(`Error minifying ${filePath}:`, error);
+    process.exitCode = 1;
     return { minified: "", size: 0, gzipSize: 0 };
   }
 }
@@ -172,6 +180,7 @@ async function analyzeClientImports(): Promise<void> {
       "Error analyzing client imports:",
       error instanceof Error ? error.message : String(error)
     );
+    process.exit(1);
   }
 }
 
