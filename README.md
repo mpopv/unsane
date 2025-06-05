@@ -16,6 +16,10 @@ A tiny, zero-dependency, run-anywhere HTML sanitization library written in TypeS
 npm install unsane
 ```
 
+## Requirements
+
+Unsane requires **Node.js 14 or later**.
+
 ## Usage
 
 ### Basic Usage

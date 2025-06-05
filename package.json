@@ -38,6 +38,9 @@
     "url": "https://github.com/mpopv/unsane/issues"
   },
   "homepage": "https://github.com/mpopv/unsane#readme",
+  "engines": {
+    "node": ">=14"
+  },
   "devDependencies": {
     "@types/node": "^22.13.9",
     "@typescript-eslint/eslint-plugin": "^8.26.0",
