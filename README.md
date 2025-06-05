@@ -79,6 +79,16 @@ const escaped = escape('<script>"alert"</script>');
 // -> '&lt;script&gt;&quot;alert&quot;&lt;/script&gt;'
 ```
 
+### CLI Usage
+
+You can also sanitize input directly from the command line:
+
+```bash
+echo '<script>alert("xss")</script>' | npx unsane
+```
+
+This reads HTML from `stdin` and prints the sanitized result to `stdout`.
+
 ## Bundle Size
 
 This library is designed to be lightweight while providing comprehensive HTML sanitization:
