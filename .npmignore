@@ -1,0 +1,15 @@
+# Exclude development sources and configs
+src/
+test/
+dist/**/*.test.*
+dist/test/
+measure-size.ts
+bin/
+.github/
+.eslintrc.cjs
+vite.config.ts
+package-lock.json
+CHANGELOG.md
+SECURITY.md
+tsconfig*.json
+coverage
