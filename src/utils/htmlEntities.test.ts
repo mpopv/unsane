@@ -259,15 +259,7 @@ describe("HTML Entities Edge Cases", () => {
 
     // Additional test specifically for line 139
     // Test with an entity that will cause an exception in the try/catch block
-    try {
-      // Force an error by creating a situation where parseInt might throw
-      const forceError = decode("&#x" + "F".repeat(1000) + ";");
-      // If we get here, just make sure the result is reasonable
-      expect(forceError).toBe("\uFFFD");
-    } catch (e) {
-      // If we do get an exception, that's fine too - the code should handle it
-      expect(true).toBe(true);
-    }
+    expect(() => decode("&#x" + "F".repeat(1000) + ";")).not.toThrow();
   });
 
   // Test for line 87 in htmlEntities.ts

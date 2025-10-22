@@ -1,7 +1,9 @@
 import { expect, describe, it } from "vitest";
 import { sanitize } from "./htmlSanitizer.js";
-import { ALLOWED_PROTOCOLS } from "../utils/securityUtils.js";
-import { containsDangerousContent } from "../utils/securityUtils.js";
+import {
+  ALLOWED_PROTOCOLS,
+  containsDangerousContent,
+} from "../utils/securityUtils.js";
 import * as fs from "fs";
 import * as path from "path";
 

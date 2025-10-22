@@ -150,7 +150,7 @@ export function decode(text: string): string {
         if (isNaN(codePoint)) return match;
 
         return codePointToString(codePoint);
-      } /* c8 ignore next */ catch (e) {
+      } /* c8 ignore next */ catch {
         return match;
         /* c8 ignore next */
       }
