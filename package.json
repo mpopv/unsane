@@ -17,8 +17,8 @@
     }
   },
   "scripts": {
-    "build": "tsc && tsc --project tsconfig.cjs.json && npm run build:compat",
-    "build:compat": "cp dist/src/index.js dist/index.js && cp dist/cjs/src/index.js dist/index.cjs",
+    "build": "tsc && tsc --project tsconfig.cjs.json && npm run build:post",
+    "build:post": "cp dist/cjs/index.js dist/index.cjs",
     "test": "vitest run --coverage",
     "lint": "ESLINT_USE_FLAT_CONFIG=false eslint -c .eslintrc.cjs . --ext .ts,.js",
     "prepare": "npm run build",

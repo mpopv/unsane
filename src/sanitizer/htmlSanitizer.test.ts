@@ -1,7 +1,7 @@
 import { expect, describe, it } from "vitest";
-import { sanitize } from "./htmlSanitizer";
-import { ALLOWED_PROTOCOLS } from "../utils/securityUtils";
-import { containsDangerousContent } from "../utils/securityUtils";
+import { sanitize } from "./htmlSanitizer.js";
+import { ALLOWED_PROTOCOLS } from "../utils/securityUtils.js";
+import { containsDangerousContent } from "../utils/securityUtils.js";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -1120,7 +1120,7 @@ describe("htmlSanitizer", () => {
         "ul",
         "li",
       ];
-      const testCases = [];
+      const testCases: string[] = [];
 
       // Generate many variations of closing tag patterns
       for (const tag of tags) {
@@ -1635,4 +1635,5 @@ describe("htmlSanitizer", () => {
     expect(criticalOutput).toContain("id");
     expect(criticalOutput).toContain("test");
   });
+
 });

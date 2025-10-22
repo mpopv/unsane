@@ -83,7 +83,8 @@ export function encode(text: string, options: EncodeOptions = {}): string {
   }
 
   return String(text).replace(pattern, (char) => {
-    // Skip non-target characters (should never happen due to RegExp)
+    // Skip non-target characters (should never happen because pattern limits matches)
+    /* c8 ignore next */
     if (!escapeOnly && !encodeEverything && !/["&<>']/.test(char)) return char;
 
     // For escape function compatibility - use fixed output format for tests
@@ -136,6 +137,7 @@ export function decode(text: string): string {
   return text.replace(/&(#?[0-9A-Za-z]+);/g, (match, entity) => {
     if (entity[0] === "#") {
       // Numeric entity
+      /* c8 ignore next */
       if (entity.length < 2) return match;
 
       try {

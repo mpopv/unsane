@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { decode, encode, escape } from "./htmlEntities";
+import { decode, encode, escape } from "./htmlEntities.js";
 
 describe("htmlEntities", () => {
   describe("decode", () => {
@@ -31,6 +31,7 @@ describe("htmlEntities", () => {
       expect(decode("&unknown;")).toBe("&unknown;");
       expect(decode("&#xGHI;")).toBe("&#xGHI;");
       expect(decode("&#abc;")).toBe("&#abc;");
+      expect(decode("&#;")).toBe("&#;");
     });
 
     it("should decode multiple entities in a string", () => {

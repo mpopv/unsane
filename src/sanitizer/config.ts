@@ -2,7 +2,7 @@
  * Default configuration for the HTML sanitizer
  */
 
-import { SanitizerOptions } from "../types";
+import { SanitizerOptions } from "../types.js";
 
 /**
  * Default sanitizer options with minimal safe allowlists

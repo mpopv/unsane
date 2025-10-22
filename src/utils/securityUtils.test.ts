@@ -5,7 +5,7 @@ import {
   ALLOWED_PROTOCOLS,
   EncodeOptions,
   DANGEROUS_CONTENT,
-} from "./securityUtils";
+} from "./securityUtils.js";
 
 describe("Security Utils", () => {
   describe("containsDangerousContent", () => {
