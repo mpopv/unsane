@@ -2,6 +2,24 @@
  * HTML Sanitizer - Removes dangerous content from HTML
  *
  * Uses an inline tokenizer to parse HTML and rebuild it safely in a single pass
+ *
+ * Tokenizer invariants:
+ * - Parsing advances left-to-right with an explicit state enum (TEXT, TAG_START,
+ *   TAG_NAME, ATTR_NAME, ATTR_VALUE_START, ATTR_VALUE, TAG_END). Every state
+ *   transition funnels through a single loop so we can reason about how
+ *   malformed markup is repaired.
+ * - Tag names and attribute names are normalized to lowercase before any
+ *   allowlist check. Attribute/value pairs are buffered until the tag closes
+ *   so that removal decisions are made on the complete attribute list.
+ * - Text nodes are emitted only after entity decoding + re-encoding, which
+ *   prevents double encoding while still allowing `sanitizeTextContent` to
+ *   neutralize suspicious substrings.
+ * - `stack` tracks only allowed, non-void elements. Whenever structural
+ *   anomalies are detected (e.g., `<div>` inside `<p>`), we eagerly close
+ *   mismatched ancestors to keep the output tree balanced.
+ * - Void elements (`br`, `img`, etc.) and explicit self-closing tokens never
+ *   push to the stack. They are emitted in `<tag />` form to avoid relying on
+ *   downstream HTML serializers.
  */
 
 import { DEFAULT_OPTIONS } from "./config.js";
@@ -174,7 +192,8 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
         // Decode any entities, then sanitize and re-encode
         // This handles both regular text and text with entities in one path
         const decoded = decode(cleanText);
-        output += sanitizeTextContent(decoded, encode);
+        const sanitizedText = sanitizeTextContent(decoded, encode);
+        output += encode(sanitizedText, { escapeOnly: true });
       }
 
       textBuffer = "";

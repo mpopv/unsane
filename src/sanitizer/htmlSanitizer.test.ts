@@ -393,7 +393,7 @@ describe("htmlSanitizer", () => {
   it("should handle script tags and content", () => {
     const input = "<div>before<script>alert(1)</script>after</div>";
     const output = sanitize(input);
-    expect(output).toBe("<div>before>after</div>");
+    expect(output).toBe("<div>before&gt;after</div>");
   });
 
   it("should filter attributes with dangerous characters", () => {
@@ -722,7 +722,7 @@ describe("htmlSanitizer", () => {
     const input = "<div><script>var x = 'test';</script></div>";
     const output = sanitize(input);
     // The sanitizer preserves the ">" character in the output
-    expect(output).toBe("<div>></div>");
+    expect(output).toBe("<div>&gt;</div>");
   });
 
   it("should handle complex script detection cases", () => {
