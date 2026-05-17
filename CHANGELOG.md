@@ -19,7 +19,7 @@
 - Made `npm run build` clean `dist/` before compiling so stale generated files cannot leak into package checks.
 - Added exact packed-file assertions and TypeScript consumer validation to the package smoke test.
 - Added a release-triggered npm publish workflow for trusted publishing / OIDC and hardened the local release script around the full verification gate.
-- Added dependency review, CodeQL, and runtime size budget enforcement.
+- Added dependency review and runtime size budget enforcement, while keeping the repository compatible with GitHub's CodeQL default setup.
 - Strengthened CI to run lint, tests, build, size analysis, package dry-run checks, and package-consumption smoke tests on supported development Node versions.
 - Added a corpus-style security regression suite for executable-output invariants.
 - Added deterministic generated-input sanitizer fuzz coverage.
