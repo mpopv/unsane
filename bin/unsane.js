@@ -1,19 +1,19 @@
 #!/usr/bin/env node
-import { sanitize } from '../dist/index.js';
+import { sanitize } from "../dist/index.js";
 
-let data = '';
-process.stdin.setEncoding('utf8');
+let data = "";
+process.stdin.setEncoding("utf8");
 
 if (process.stdin.isTTY) {
   console.error('Usage: echo "<html>" | unsane');
   process.exit(1);
 }
 
-process.stdin.on('data', chunk => {
+process.stdin.on("data", (chunk) => {
   data += chunk;
 });
 
-process.stdin.on('end', () => {
+process.stdin.on("end", () => {
   try {
     const clean = sanitize(data);
     process.stdout.write(clean);

@@ -67,6 +67,6 @@
     "vitest": "^3.0.7"
   },
   "bin": {
-    "unsane": "./bin/unsane"
+    "unsane": "./bin/unsane.js"
   }
 }
