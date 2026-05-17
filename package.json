@@ -50,7 +50,7 @@
     "@types/node": "^22.19.19",
     "@typescript-eslint/eslint-plugin": "^8.59.3",
     "@typescript-eslint/parser": "^8.59.3",
-    "@vitest/coverage-v8": "^3.2.4",
+    "@vitest/coverage-v8": "^4.1.6",
     "@vitest/ui": "^3.2.4",
     "dompurify": "^3.4.4",
     "eslint": "^9.39.4",
