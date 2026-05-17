@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Fixes
+- Fixed CommonJS package consumption by exporting the generated CJS entry directly and marking `dist/cjs` as CommonJS.
 - Fixed size analysis to inspect the current `dist/` runtime import closure instead of stale `dist/src/` paths.
 - Clarified that URL protocols are intentionally fixed to Unsane's conservative allowlist rather than configurable through an `allowedProtocols` option.
 - Raised the documented Node.js support floor to `>=18.18.0`, matching the current toolchain and CI coverage.

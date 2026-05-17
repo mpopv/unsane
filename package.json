@@ -3,7 +3,7 @@
   "version": "0.0.19",
   "description": "A tiny, zero-dependency, run-anywhere HTML sanitization library written in TypeScript.",
   "type": "module",
-  "main": "./dist/index.cjs",
+  "main": "./dist/cjs/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
@@ -13,12 +13,12 @@
   "exports": {
     ".": {
       "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "require": "./dist/cjs/index.js"
     }
   },
   "scripts": {
     "build": "tsc && tsc --project tsconfig.cjs.json && npm run build:post",
-    "build:post": "cp dist/cjs/index.js dist/index.cjs",
+    "build:post": "node scripts/build-post.mjs",
     "test": "vitest run --coverage",
     "lint": "eslint . --ext .ts,.js",
     "prepare": "npm run build",
