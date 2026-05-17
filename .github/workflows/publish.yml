@@ -30,4 +30,5 @@ jobs:
       - run: npm run analyze-size
       - run: npm pack --dry-run
       - run: npm run smoke:package
+      - run: npm publish --dry-run
       - run: npm publish --access public

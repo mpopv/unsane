@@ -4,6 +4,8 @@
 
 ### Fixes
 
+- Added safe `rel="noopener noreferrer"` hardening for links emitted with `target="_blank"`.
+- Added configurable input-length guardrails through `maxInputLength`.
 - Hardened URL attribute filtering by decoding entity-obfuscated protocols, blocking protocol-relative URLs, and avoiding generic text heuristics for otherwise safe URLs.
 - Preserved explicit empty attribute values separately from boolean attributes.
 - Normalized custom sanitizer tag and attribute allowlists to lowercase before matching.
@@ -15,6 +17,10 @@
 
 ### Improvements
 
+- Added changelog-derived release notes, `npm publish --dry-run`, and post-release npm artifact verification to the release flow.
+- Added performance regression coverage for large fragments, deep nesting, and large attribute payloads.
+- Expanded malformed parser coverage with browser-reparse invariants.
+- Renamed older coverage-oriented tests around observable sanitizer behavior.
 - Refreshed development dependencies to clear the npm audit report while keeping the Vite/Vitest toolchain on the Node 18-compatible line.
 - Made `npm run build` clean `dist/` before compiling so stale generated files cannot leak into package checks.
 - Added exact packed-file assertions and TypeScript consumer validation to the package smoke test.

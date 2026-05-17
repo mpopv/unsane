@@ -25,6 +25,8 @@
     "clean": "rm -rf dist",
     "analyze-size": "tsx measure-size.ts",
     "smoke:package": "node scripts/package-smoke-test.mjs",
+    "release:notes": "node scripts/release-notes.mjs",
+    "verify:release": "node scripts/post-release-verify.mjs",
     "release": "bin/release.sh"
   },
   "keywords": [

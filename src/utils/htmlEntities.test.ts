@@ -36,7 +36,7 @@ describe("htmlEntities", () => {
 
     it("should decode multiple entities in a string", () => {
       expect(decode("&lt;div&gt;Hello &amp; world!&lt;/div&gt;")).toBe(
-        "<div>Hello & world!</div>"
+        "<div>Hello & world!</div>",
       );
     });
   });
@@ -74,7 +74,7 @@ describe("htmlEntities", () => {
       const input = '<img src="x" onerror="alert(\'XSS\')">';
       const result = escape(input);
       expect(result).toBe(
-        "&lt;img src=&quot;x&quot; onerror=&quot;alert(&#x27;XSS&#x27;)&quot;&gt;"
+        "&lt;img src=&quot;x&quot; onerror=&quot;alert(&#x27;XSS&#x27;)&quot;&gt;",
       );
     });
 
@@ -103,12 +103,12 @@ describe("HTML Entities Edge Cases", () => {
 
       // Test useNamedReferences
       expect(encode(input, { useNamedReferences: true })).toBe(
-        "&lt;div&gt;&quot;test&quot;&lt;/div&gt;"
+        "&lt;div&gt;&quot;test&quot;&lt;/div&gt;",
       );
 
       // Test decimal encoding
       expect(encode(input, { decimal: true })).toBe(
-        "&#60;div&#62;&#34;test&#34;&#60;/div&#62;"
+        "&#60;div&#62;&#34;test&#34;&#60;/div&#62;",
       );
 
       // Test encodeEverything
@@ -118,12 +118,12 @@ describe("HTML Entities Edge Cases", () => {
 
       // Test escapeOnly
       expect(encode(input, { escapeOnly: true })).toBe(
-        "&lt;div&gt;&quot;test&quot;&lt;/div&gt;"
+        "&lt;div&gt;&quot;test&quot;&lt;/div&gt;",
       );
 
       // Test combinations
       expect(encode(input, { useNamedReferences: true, decimal: true })).toBe(
-        "&lt;div&gt;&quot;test&quot;&lt;/div&gt;"
+        "&lt;div&gt;&quot;test&quot;&lt;/div&gt;",
       );
     });
 
@@ -193,10 +193,7 @@ describe("HTML Entities Edge Cases", () => {
     const unicodeExpected = "Café &lt; Restaurant &amp; Bar";
     expect(encode(unicodeInput, { escapeOnly: true })).toBe(unicodeExpected);
   });
-
-  // Specifically target line 87 in htmlEntities.ts
   it("should handle edge case for non-target characters in RegExp with specific options", () => {
-    // This should hit line 87 - we need to create a case where !escapeOnly && !encodeEverything
     // but we have a character that doesn't match /"&<>'/
 
     // Create a payload with a mix of special chars and normal chars
@@ -219,10 +216,7 @@ describe("HTML Entities Edge Cases", () => {
     expect(result).toContain("c");
     expect(result).toContain("d");
     expect(result).toContain("e");
-    expect(result).toContain("f");
-
-    // Additional test specifically for line 87
-    // Test with a character that doesn't match the pattern but with !escapeOnly && !encodeEverything
+    expect(result).toContain("f"); // Test with a character that doesn't match the pattern but with !escapeOnly && !encodeEverything
     const resultWithNonTarget = encode("xyz123", {
       escapeOnly: false,
       encodeEverything: false,
@@ -231,10 +225,7 @@ describe("HTML Entities Edge Cases", () => {
     // Should be unchanged since none of these characters match /"&<>'/
     expect(resultWithNonTarget).toBe("xyz123");
   });
-
-  // Specifically target line 139 in htmlEntities.ts
   it("should handle extremely broken HTML entity formats", () => {
-    // This should trigger the error handling in the try/catch around line 139
     // by creating invalid hex and decimal entities with parsing errors
 
     // Invalid hex entity with invalid code point
@@ -255,14 +246,9 @@ describe("HTML Entities Edge Cases", () => {
     expect(weirdHex).toBe("&#x-1;");
 
     const weirdDecimal = decode("&#-1;");
-    expect(weirdDecimal).toBe("&#-1;");
-
-    // Additional test specifically for line 139
-    // Test with an entity that will cause an exception in the try/catch block
+    expect(weirdDecimal).toBe("&#-1;"); // Test with an entity that will cause an exception in the try/catch block
     expect(() => decode("&#x" + "F".repeat(1000) + ";")).not.toThrow();
   });
-
-  // Test for line 87 in htmlEntities.ts
   it("should handle non-standard characters in encode function", () => {
     // Test with a character that wouldn't normally be encoded
     const inputWithNormalChars = "regular text 123";
@@ -284,8 +270,6 @@ describe("HTML Entities Edge Cases", () => {
     expect(specialOutput).not.toBe("a&b<c>d'e\"f");
     expect(specialOutput).toContain("&lt;"); // < encoded
   });
-
-  // Test for line 139 in htmlEntities.ts
   it("should handle edge cases in HTML entity decoding", () => {
     // Test with invalid hex entity that could trigger error path
     const output = decode("&#xZ;"); // Invalid hex entity
@@ -303,10 +287,7 @@ describe("HTML Entities Edge Cases", () => {
     const output4 = decode("&#X20;"); // Uppercase X should work too
     expect(output4).toBe(" "); // Space character
   });
-
-  // Target line 87 in htmlEntities.ts
   it("should handle non-target characters in htmlEntities with extreme edge cases", () => {
-    // Create a test case that will specifically hit line 87
     // We need a character that doesn't match the pattern with !escapeOnly && !encodeEverything
 
     const result = encode("abcdefghijklmnopqrstuvwxyz0123456789", {
@@ -336,10 +317,7 @@ describe("HTML Entities Edge Cases", () => {
     expect(result2).toContain("&#x22;"); // "
     expect(result2).toContain("&#x27;"); // '
   });
-
-  // Target line 139 in htmlEntities.ts
   it("should handle extremely broken HTML entity formats with edge cases", () => {
-    // Create a test case that will specifically hit line 139
     // We need to create entities that will cause errors in the parseInt functions
 
     // Try with an entity that has an extremely large hex value
@@ -359,7 +337,7 @@ describe("HTML Entities Edge Cases", () => {
     expect(result4).toBe("\uFFFD"); // Should be the replacement character
   });
 
-  it("should absolutely cover line 87 in htmlEntities.ts", () => {
+  it("should preserve default entity encoding for ordinary characters", () => {
     // We need to hit this return char condition in the replace function
 
     // Test with a wide variety of non-special characters
@@ -411,9 +389,7 @@ describe("HTML Entities Edge Cases", () => {
     expect(mixedResult.includes("'")).toBe(false);
     // Don't check for literal & here as it might be part of the hex entities
   });
-
-  // Target line 139 in htmlEntities.ts
-  it("should absolutely cover line 139 in htmlEntities.ts", () => {
+  it("should leave malformed numeric entities inert", () => {
     // We need to trigger the try/catch block in decode
 
     // Try with a series of progressively more broken entities

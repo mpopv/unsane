@@ -6,6 +6,12 @@ set -euo pipefail
 VERSION=${1:-}
 MAIN_BRANCH=${MAIN_BRANCH:-main}
 REMOTE=${REMOTE:-origin}
+NOTES_FILE=$(mktemp)
+
+cleanup() {
+  rm -f "$NOTES_FILE"
+}
+trap cleanup EXIT
 
 if [[ -z "$VERSION" ]]; then
   echo "Usage: $0 <version>"
@@ -58,14 +64,16 @@ npm run build
 npm run analyze-size
 npm pack --dry-run
 npm run smoke:package
+node scripts/release-notes.mjs "$VERSION" > "$NOTES_FILE"
 
 npm version "$VERSION" -m "chore: release v%s"
+npm publish --dry-run
 git push "$REMOTE" "$MAIN_BRANCH" --follow-tags
 
 gh release create "v$VERSION" \
   --target "$MAIN_BRANCH" \
   --title "v$VERSION" \
-  --notes "Release $VERSION"
+  --notes-file "$NOTES_FILE"
 
 echo "Created GitHub release v$VERSION."
 echo "npm publishing is handled by .github/workflows/publish.yml via trusted publishing."

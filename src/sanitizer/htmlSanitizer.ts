@@ -31,6 +31,7 @@ import {
 
 type Attribute = [name: string, value: string, hasValue: boolean];
 type NormalizedOptions = Required<SanitizerOptions>;
+type OutputAttribute = [name: string, value: string, hasValue: boolean];
 
 // Define void elements (tags that should be self-closing)
 const VOID_ELEMENTS = new Set([
@@ -103,6 +104,7 @@ function normalizeOptions(options: NormalizedOptions): NormalizedOptions {
     ...options,
     allowedTags: normalizeList(options.allowedTags),
     allowedAttributes: normalizeAllowedAttributes(options.allowedAttributes),
+    maxInputLength: options.maxInputLength ?? DEFAULT_OPTIONS.maxInputLength,
   };
 }
 
@@ -155,6 +157,49 @@ function shouldSkipElementContent(tagName: string): boolean {
   return SKIP_CONTENT_ELEMENTS.has(tagName) || tagName.startsWith("script");
 }
 
+function assertInputWithinLimit(html: string, maxInputLength: number): void {
+  if (
+    typeof maxInputLength !== "number" ||
+    maxInputLength < 0 ||
+    Number.isNaN(maxInputLength)
+  ) {
+    throw new RangeError("maxInputLength must be a non-negative number.");
+  }
+
+  if (Number.isFinite(maxInputLength) && html.length > maxInputLength) {
+    throw new RangeError(
+      `Input length ${html.length} exceeds maxInputLength ${maxInputLength}.`,
+    );
+  }
+}
+
+function isBlankTarget(value: string): boolean {
+  return value.trim().toLowerCase() === "_blank";
+}
+
+function mergeSafeRel(value: string): string {
+  const relTokens = value
+    .split(/\s+/)
+    .map((token) => token.toLowerCase())
+    .filter(Boolean);
+
+  for (const requiredToken of ["noopener", "noreferrer"]) {
+    if (!relTokens.includes(requiredToken)) {
+      relTokens.push(requiredToken);
+    }
+  }
+
+  return relTokens.join(" ");
+}
+
+function renderAttribute([name, value, hasValue]: OutputAttribute): string {
+  if (hasValue) {
+    return ` ${name}="${encode(value, { escapeOnly: true })}"`;
+  }
+
+  return ` ${name}`;
+}
+
 /**
  * Process and filter attributes for a tag, removing any dangerous attributes
  *
@@ -177,8 +222,9 @@ function processAttributes(
   // Combine the two lists
   const allowedAttrs = [...tagAllowedAttrs, ...globalAttrs];
 
-  let result = "";
+  const outputAttrs: OutputAttribute[] = [];
   const emittedAttrs = new Set<string>();
+  let hasBlankTarget = false;
 
   // Process each attribute
   for (const [name, value, hasValue] of attrs) {
@@ -203,15 +249,29 @@ function processAttributes(
     }
     emittedAttrs.add(lowerName);
 
-    // Add the attribute to the output
-    if (hasValue) {
-      result += ` ${lowerName}="${encode(value, { escapeOnly: true })}"`;
+    const outputValue =
+      lowerName === "target" && hasValue && isBlankTarget(value)
+        ? "_blank"
+        : value;
+
+    if (lowerName === "target" && isBlankTarget(outputValue)) {
+      hasBlankTarget = true;
+    }
+
+    outputAttrs.push([lowerName, outputValue, hasValue]);
+  }
+
+  if (tagName === "a" && hasBlankTarget) {
+    const relAttr = outputAttrs.find(([name]) => name === "rel");
+
+    if (relAttr) {
+      relAttr[1] = mergeSafeRel(relAttr[1]);
     } else {
-      result += ` ${lowerName}`;
+      outputAttrs.push(["rel", "noopener noreferrer", true]);
     }
   }
 
-  return result;
+  return outputAttrs.map((attr) => renderAttribute(attr)).join("");
 }
 
 /**
@@ -224,6 +284,7 @@ function processAttributes(
 export function sanitize(html: string, options?: SanitizerOptions): string {
   // Merge default options with user options
   const mergedOptions = normalizeOptions({ ...DEFAULT_OPTIONS, ...options });
+  assertInputWithinLimit(html, mergedOptions.maxInputLength);
 
   // Stack for tracking open tags
   const stack: string[] = [];

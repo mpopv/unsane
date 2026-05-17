@@ -16,9 +16,9 @@ const globalAttributes = [...(allowedAttributeMap["*"] ?? [])];
 const domPurifyAllowedAttrs = Array.from(
   new Set(
     Object.entries(allowedAttributeMap).flatMap(([tag, attrs]) =>
-      tag === "*" ? attrs : attrs
-    )
-  )
+      tag === "*" ? attrs : attrs,
+    ),
+  ),
 );
 
 const forbidTags = [
@@ -49,7 +49,10 @@ function sanitizeWithDOMPurify(html: string): string {
 
 function sanitizeWithSanitizeHtml(html: string): string {
   const allowedAttributes = Object.fromEntries(
-    Object.entries(allowedAttributeMap).map(([tag, attrs]) => [tag, [...attrs]])
+    Object.entries(allowedAttributeMap).map(([tag, attrs]) => [
+      tag,
+      [...attrs],
+    ]),
   );
   allowedAttributes["*"] = globalAttributes;
 
@@ -82,7 +85,7 @@ const benignCases = [
   },
   {
     name: "link with safe attributes",
-    html: '<a href="https://example.com" rel="noopener" target="_blank" class="btn">Visit</a>',
+    html: '<a href="https://example.com" rel="noopener" target="_self" class="btn">Visit</a>',
   },
   {
     name: "image with metadata",
@@ -152,10 +155,10 @@ describe("htmlSanitizer differential behavior", () => {
     it(`matches reference sanitizers for ${testCase.name}`, () => {
       const unsaneResult = canonicalize(sanitize(testCase.html));
       const domPurifyResult = canonicalize(
-        sanitizeWithDOMPurify(testCase.html)
+        sanitizeWithDOMPurify(testCase.html),
       );
       const sanitizeHtmlResult = canonicalize(
-        sanitizeWithSanitizeHtml(testCase.html)
+        sanitizeWithSanitizeHtml(testCase.html),
       );
 
       expect([domPurifyResult, sanitizeHtmlResult]).toContain(unsaneResult);

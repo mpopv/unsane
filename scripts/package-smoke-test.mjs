@@ -81,6 +81,7 @@ const options: SanitizerOptions = {
     a: ["href"],
     "*": ["class"],
   },
+  maxInputLength: 1024,
 };
 
 const sanitized: string = sanitize('<a href="/docs" class="link">Docs</a>', options);

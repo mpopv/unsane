@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { JSDOM } from "jsdom";
 import { sanitize } from "./htmlSanitizer.js";
+
+function browserBody(html: string): string {
+  return new JSDOM(`<body>${html}</body>`).window.document.body.innerHTML;
+}
 
 describe("htmlSanitizer malformed parser corpus", () => {
   it("strips comments without leaking markup inside them", () => {
@@ -52,5 +57,25 @@ describe("htmlSanitizer malformed parser corpus", () => {
 
   it("drops unterminated quoted attributes instead of repairing them unsafely", () => {
     expect(sanitize('<div title="unterminated>Text</div>')).toBe("");
+  });
+
+  it("keeps hostile output inert after browser reparsing", () => {
+    const hostileInputs = [
+      "a<!-- <img src=x onerror=alert(1)> -->b",
+      '<svg><a href="javascript:alert(1)">link</a></svg><p>ok</p>',
+      "<div><table><tr><td><img src=x onerror=alert(1)></td></tr></table></div>",
+      '<a href="java\nscript:alert(1)" target="_blank">link</a>',
+      "<math><mtext></form><form><mglyph><style></math><img src=x onerror=alert(1)>",
+    ];
+
+    for (const input of hostileInputs) {
+      const reparsed = browserBody(sanitize(input));
+
+      expect(reparsed).not.toMatch(/<script\b/i);
+      expect(reparsed).not.toMatch(/<svg\b/i);
+      expect(reparsed).not.toMatch(/<math\b/i);
+      expect(reparsed).not.toMatch(/\son[a-z]+\s*=/i);
+      expect(reparsed).not.toMatch(/\s(?:href|src)=["']?\s*javascript:/i);
+    }
   });
 });

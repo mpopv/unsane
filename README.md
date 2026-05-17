@@ -6,7 +6,7 @@ A tiny, zero-dependency, run-anywhere HTML sanitization library written in TypeS
 
 ## Features
 
-- **Lightweight**: ~5.5KB minified runtime import closure, ~2.4KB minified+gzipped
+- **Lightweight**: ~8.9KB minified runtime import closure, ~3.5KB minified+gzipped
 - **Zero dependencies**: Includes internal HTML entity encoder/decoder and state machine tokenizer
 - **Run anywhere**: Doesn't rely on DOM APIs, JSDOM, or Node APIs, so you can use in any environment
 
@@ -70,6 +70,9 @@ Available options:
 - `allowedTags` – array of tag names that are kept in the sanitized output.
 - `allowedAttributes` – object mapping tag names to allowed attributes. Use
   `"*"` for attributes allowed on all tags.
+- `maxInputLength` – maximum input string length accepted by `sanitize()`.
+  Defaults to `1_000_000` characters. Set to `Infinity` only for trusted,
+  already-bounded inputs.
 
 URL-bearing attributes use a fixed conservative protocol allowlist:
 `http:`, `https:`, `mailto:`, `tel:`, `ftp:`, and `sms:`. Custom protocol
@@ -77,12 +80,17 @@ allowlists are intentionally not part of the public API. Relative URLs and
 fragments are allowed, while protocol-relative URLs (`//example.com`) are
 removed.
 
+Links with `target="_blank"` are emitted with `rel="noopener noreferrer"` even
+when `rel` is omitted from a custom allowlist.
+
 ### Security Notes
 
 - Unsane sanitizes HTML fragments, not full document policies. Keep Content
   Security Policy, Trusted Types, and framework escaping in place.
 - URL attributes are checked after entity decoding and protocol normalization,
   but URL rewriting and link reputation checks remain the caller's job.
+- Inputs longer than the configured `maxInputLength` throw a `RangeError`; keep
+  upstream request-body limits in place for untrusted traffic.
 - CSS is not sanitized. `style` attributes and `<style>` elements are dropped
   instead of parsed.
 - SVG and MathML are outside the supported safe subset and are removed rather
@@ -124,10 +132,10 @@ This library is designed to be lightweight while providing comprehensive HTML sa
 
 | Metric                                 | Size         |
 | -------------------------------------- | ------------ |
-| Runtime import closure                 | ~28.24 KB    |
-| Runtime import closure gzipped         | ~7.13 KB     |
-| Minified runtime closure               | ~7.96 KB     |
-| **Minified + gzipped runtime closure** | **~3.11 KB** |
+| Runtime import closure                 | ~30.13 KB   |
+| Runtime import closure gzipped         | ~7.62 KB    |
+| Minified runtime closure               | ~8.93 KB    |
+| **Minified + gzipped runtime closure** | **~3.5 KB** |
 
 You can check the package size yourself with:
 

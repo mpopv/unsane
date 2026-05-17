@@ -16,7 +16,11 @@ export interface SanitizerOptions {
    */
   allowedAttributes?: Record<string, string[]>;
 
-  // All configuration options above
+  /**
+   * Maximum input string length accepted by sanitize().
+   * Set to Infinity to disable the guardrail for trusted, bounded inputs.
+   */
+  maxInputLength?: number;
 }
 
 export interface Sanitizer {

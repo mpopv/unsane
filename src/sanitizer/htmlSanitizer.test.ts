@@ -1,11 +1,10 @@
 import { expect, describe, it } from "vitest";
 import { sanitize } from "./htmlSanitizer.js";
+import { DEFAULT_MAX_INPUT_LENGTH } from "./config.js";
 import {
   ALLOWED_PROTOCOLS,
   containsDangerousContent,
 } from "../utils/securityUtils.js";
-import * as fs from "fs";
-import * as path from "path";
 
 describe("htmlSanitizer", () => {
   it("should remove disallowed tags", () => {
@@ -26,6 +25,31 @@ describe("htmlSanitizer", () => {
     });
     expect(output).toContain('href="https://example.com"');
     expect(output).not.toContain("onclick");
+  });
+
+  it("should harden target blank links with safe rel tokens", () => {
+    expect(sanitize('<a href="/docs" target="_blank">Docs</a>')).toBe(
+      '<a href="/docs" target="_blank" rel="noopener noreferrer">Docs</a>',
+    );
+
+    expect(
+      sanitize('<a href="/docs" target=" _BLANK " rel="nofollow">Docs</a>'),
+    ).toBe(
+      '<a href="/docs" target="_blank" rel="nofollow noopener noreferrer">Docs</a>',
+    );
+
+    expect(
+      sanitize('<a href="/docs" target="_blank">Docs</a>', {
+        allowedTags: ["a"],
+        allowedAttributes: { a: ["href", "target"] },
+      }),
+    ).toBe(
+      '<a href="/docs" target="_blank" rel="noopener noreferrer">Docs</a>',
+    );
+
+    expect(sanitize('<a href="/docs" target="_self">Docs</a>')).toBe(
+      '<a href="/docs" target="_self">Docs</a>',
+    );
   });
 
   it("should normalize custom tag and attribute allowlists", () => {
@@ -191,6 +215,31 @@ describe("htmlSanitizer", () => {
         allowedAttributes: { input: ["disabled"] },
       }),
     ).toBe("<input disabled />");
+  });
+
+  it("should enforce configurable input length limits", () => {
+    expect(() => sanitize("<p>ok</p>", { maxInputLength: 4 })).toThrow(
+      RangeError,
+    );
+
+    expect(
+      sanitize("<p>ok</p>", {
+        maxInputLength: Infinity,
+      }),
+    ).toBe("<p>ok</p>");
+
+    expect(() => sanitize("<p>ok</p>", { maxInputLength: -1 })).toThrow(
+      RangeError,
+    );
+    expect(() => sanitize("<p>ok</p>", { maxInputLength: Number.NaN })).toThrow(
+      RangeError,
+    );
+
+    expect(() =>
+      sanitize("x".repeat(DEFAULT_MAX_INPUT_LENGTH + 1), {
+        maxInputLength: undefined,
+      }),
+    ).toThrow(RangeError);
   });
 
   it("should handle more complex double less-than cases", () => {
@@ -600,7 +649,6 @@ describe("htmlSanitizer", () => {
   });
 
   it("should handle attributes without values when tag closes", () => {
-    // This specifically targets line 361
     const input = "<div data-test>Content</div>";
     const output = sanitize(input, {
       allowedTags: ["div"],
@@ -967,7 +1015,6 @@ describe("htmlSanitizer", () => {
   });
 
   it("should handle dangerous URL attributes with specific patterns", () => {
-    // This special URL pattern should trigger line 65-66
     const dangerousUrl = "javascript:/* comment */alert(1)";
 
     // Verify that it's considered dangerous by the utility function
@@ -1000,7 +1047,6 @@ describe("htmlSanitizer", () => {
   });
 
   it("should handle empty attribute values in tag closing context", () => {
-    // Create a very specific input to trigger line 396
     const input = '<div data-attr="">';
     const output = sanitize(input, {
       allowedTags: ["div"],
@@ -1010,10 +1056,7 @@ describe("htmlSanitizer", () => {
     // Test the output structure - the sanitizer preserves the attribute but without quotes
     expect(output).toContain("<div");
     expect(output).toContain("data-attr"); // The attribute is preserved but without quotes
-    expect(output).toContain("</div>");
-
-    // Additional test specifically for line 396
-    // Test with an attribute that has an empty value followed immediately by >
+    expect(output).toContain("</div>"); // Test with an attribute that has an empty value followed immediately by >
     const inputWithEmptyAttr = '<div data-empty="">';
     const outputWithEmptyAttr = sanitize(inputWithEmptyAttr, {
       allowedTags: ["div"],
@@ -1026,7 +1069,6 @@ describe("htmlSanitizer", () => {
   });
 
   it("should handle specific unquoted attribute edge cases", () => {
-    // Create very specific inputs to trigger line 429
     const inputs = [
       "<div data-test=value>content</div>",
       "<div data-test=value class=test>content</div>",
@@ -1043,10 +1085,7 @@ describe("htmlSanitizer", () => {
       expect(output).toContain("<div");
       expect(output).toContain("content");
       expect(output).toContain("</div>");
-    }
-
-    // Additional test specifically for line 429
-    // Test with an unquoted attribute value followed immediately by >
+    } // Test with an unquoted attribute value followed immediately by >
     const inputWithUnquotedAttr = "<div data-test=value>";
     const outputWithUnquotedAttr = sanitize(inputWithUnquotedAttr, {
       allowedTags: ["div"],
@@ -1060,7 +1099,6 @@ describe("htmlSanitizer", () => {
   });
 
   it("should handle tag end state with very specific cases", () => {
-    // This should trigger line 450 - an end tag with extra characters
     const input = "<div></div/>";
     const output = sanitize(input);
 
@@ -1072,10 +1110,7 @@ describe("htmlSanitizer", () => {
       allowedTags: ["br"],
     });
 
-    expect(output2).toContain("<br");
-
-    // Additional test specifically for line 450
-    // Test with a closing tag that has a slash and then >
+    expect(output2).toContain("<br"); // Test with a closing tag that has a slash and then >
     const inputWithSlash = "<p></p/>";
     const outputWithSlash = sanitize(inputWithSlash);
 
@@ -1288,8 +1323,7 @@ describe("htmlSanitizer", () => {
     }
   });
 
-  it("should cover all remaining uncovered lines in htmlSanitizer.ts", () => {
-    // First, let's run some normal tests to establish baseline coverage
+  it("should preserve behavior across parser boundary cases", () => {
     const input1 = '<div data-test="javascript:alert(1)">Test</div>';
     const output1 = sanitize(input1, {
       allowedTags: ["div"],
@@ -1315,59 +1349,6 @@ describe("htmlSanitizer", () => {
     const output4 = sanitize(input4);
     expect(output4).toBe("<div></div>");
 
-    // Now let's try to directly instrument the code to force coverage
-    // This is a hack, but it's sometimes necessary for hard-to-reach branches
-
-    // Create a temporary file with modified code that forces execution of the uncovered lines
-    const tempDir = path.join(__dirname, "temp");
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir);
-    }
-
-    // Read the original file
-    const originalFile = path.join(__dirname, "./htmlSanitizer.ts");
-    const originalCode = fs.readFileSync(originalFile, "utf8");
-
-    // Create a modified version that exposes internal functions for testing
-    const modifiedCode = `
-      ${originalCode}
-      
-      // Expose internal functions for testing
-      export const _forTestingOnly = {
-        containsDangerousContent: (value) => containsDangerousContent(value),
-        handleStartTag: (tagName, attrs, selfClosing) => {
-          const handler = new HTMLSanitizer();
-          return handler._handleStartTag(tagName, attrs, selfClosing);
-        },
-        handleEndTag: (tagName) => {
-          const handler = new HTMLSanitizer();
-          return handler._handleEndTag(tagName);
-        }
-      };
-    `;
-
-    const tempFile = path.join(tempDir, "htmlSanitizer.instrumented.ts");
-    fs.writeFileSync(tempFile, modifiedCode);
-
-    // Note: In a real scenario, we would now import the instrumented file and call the
-    // exposed functions directly to force coverage of specific lines. However, this
-    // approach requires modifying the build system to handle the instrumented file.
-
-    // For this exercise, we'll just note that we've created the instrumented file
-    // and would use it to directly test the uncovered lines.
-
-    // Clean up
-    if (fs.existsSync(tempFile)) {
-      fs.unlinkSync(tempFile);
-    }
-    if (fs.existsSync(tempDir)) {
-      fs.rmdirSync(tempDir);
-    }
-
-    // Since we can't actually use the instrumented file in this context,
-    // let's at least try some more extreme edge cases
-
-    // For lines 65-66: Try with a dangerous URL in a non-URL attribute
     const extremeInput1 =
       '<div title="javascript:alert(1)" id="test">Content</div>';
     const extremeOutput1 = sanitize(extremeInput1, {
@@ -1376,24 +1357,18 @@ describe("htmlSanitizer", () => {
     });
     expect(extremeOutput1).toContain('title="javascript:alert(1)"');
     expect(extremeOutput1).toContain("id");
-
-    // For line 396: Try with an empty attribute at the end of a tag
     const extremeInput2 = '<div data-empty="">Content</div>';
     const extremeOutput2 = sanitize(extremeInput2, {
       allowedTags: ["div"],
       allowedAttributes: { div: ["data-empty"] },
     });
     expect(extremeOutput2).toContain("data-empty");
-
-    // For line 429: Try with an unquoted attribute at the end of a tag
     const extremeInput3 = "<div data-test=value>Content</div>";
     const extremeOutput3 = sanitize(extremeInput3, {
       allowedTags: ["div"],
       allowedAttributes: { div: ["data-test"] },
     });
     expect(extremeOutput3).toContain("data-test");
-
-    // For line 450: Try with a tag end state
     const extremeInput4 = "<div></div/>";
     const extremeOutput4 = sanitize(extremeInput4);
     expect(extremeOutput4).toBe("<div></div>");
@@ -1424,10 +1399,7 @@ describe("htmlSanitizer", () => {
     expect(output2).toContain("<span");
     expect(output2).toContain("Click");
   });
-
-  // Target line 396 in htmlSanitizer.ts
   it("should handle empty attribute values with extreme edge cases", () => {
-    // Create a test case that will specifically hit line 396
     // We need an attribute with an empty value followed by >
 
     // Try with multiple empty attributes
@@ -1452,10 +1424,7 @@ describe("htmlSanitizer", () => {
     expect(output2).toContain("<br");
     expect(output2).toContain("data-empty");
   });
-
-  // Target line 429 in htmlSanitizer.ts
   it("should handle unquoted attribute values with extreme edge cases", () => {
-    // Create a test case that will specifically hit line 429
     // We need an unquoted attribute value followed by >
 
     // Try with multiple unquoted attributes
@@ -1483,10 +1452,7 @@ describe("htmlSanitizer", () => {
     expect(output2).toContain("data-test");
     expect(output2).toContain("value");
   });
-
-  // Target line 450 in htmlSanitizer.ts
   it("should handle tag end state with extreme edge cases", () => {
-    // Create a test case that will specifically hit line 450
     // We need a tag in TAG_END state followed by >
 
     // Try with a closing tag that has extra characters
@@ -1503,8 +1469,6 @@ describe("htmlSanitizer", () => {
 
     expect(output2).toContain("<br");
   });
-
-  // Target lines 65-66 in htmlSanitizer.ts
   it("should allow suspicious non-URL attributes but filter unsafe characters", () => {
     const dangerousAttrs = [
       'javascript:alert("XSS")',
@@ -1547,9 +1511,7 @@ describe("htmlSanitizer", () => {
     expect(extremeOutput).toContain('data-custom="javascript:alert(1)"');
     expect(extremeOutput).toContain('data-other="javascript:void(0)"');
   });
-
-  // Target line 396 in htmlSanitizer.ts
-  it("should absolutely cover line 396 in htmlSanitizer.ts", () => {
+  it("should preserve explicit empty attributes across element shapes", () => {
     // This is the code path for an attribute with empty value followed by >
 
     // Try with a variety of empty attributes in different positions
@@ -1571,7 +1533,6 @@ describe("htmlSanitizer", () => {
         },
       });
 
-      // The expected behavior varies by element, but we just need to run the code
       expect(output).toBeTruthy();
     }
 
@@ -1584,9 +1545,7 @@ describe("htmlSanitizer", () => {
 
     expect(outputMultiple).toContain("<input");
   });
-
-  // Target line 429 in htmlSanitizer.ts
-  it("should absolutely cover line 429 in htmlSanitizer.ts", () => {
+  it("should handle unquoted attributes across boundary shapes", () => {
     // This is for when an unquoted attribute value is followed by >
 
     // Variety of unquoted attribute values
@@ -1630,9 +1589,7 @@ describe("htmlSanitizer", () => {
       expect(output).toContain("value");
     }
   });
-
-  // Target line 450 in htmlSanitizer.ts
-  it("should absolutely cover line 450 in htmlSanitizer.ts", () => {
+  it("should handle odd self-closing slash sequences", () => {
     // This is for the TAG_END state when char is ">"
 
     // Try with various tag end formats that are actually allowed by the sanitizer
@@ -1650,7 +1607,6 @@ describe("htmlSanitizer", () => {
         allowedTags: ["div", "br", "img", "hr"],
       });
 
-      // Check for specific expected outputs, not just truthy
       if (input.includes("div")) {
         expect(output).toContain("div");
       } else if (input.includes("br")) {
@@ -1667,8 +1623,6 @@ describe("htmlSanitizer", () => {
     const specialOutput = sanitize(specialCase);
 
     expect(specialOutput).toBe("<div></div>");
-
-    // For the absolute coverage of line 450
     const criticalCase = '<div id="test"/>';
     const criticalOutput = sanitize(criticalCase, {
       allowedTags: ["div"],
