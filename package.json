@@ -65,7 +65,7 @@
     "tsx": "^4.22.1",
     "typescript": "^5.9.3",
     "vite": "^6.4.2",
-    "vitest": "^3.2.4"
+    "vitest": "^4.1.6"
   },
   "bin": {
     "unsane": "./bin/unsane.js"
