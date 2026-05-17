@@ -2,187 +2,161 @@
 import fs from "fs";
 import zlib from "zlib";
 import { promisify } from "util";
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 
-// Promisify necessary functions
 const readFile = promisify(fs.readFile);
 const gzip = promisify(zlib.gzip);
 
-// Only analyze files that a client would import
-const clientImportPaths = [
-  "dist/src/index.js",
-  "dist/src/sanitizer/htmlSanitizer.js"
+// ESM files loaded by the public package entry point.
+const runtimeImportPaths = [
+  "dist/index.js",
+  "dist/sanitizer/htmlSanitizer.js",
+  "dist/sanitizer/config.js",
+  "dist/utils/htmlEntities.js",
+  "dist/utils/securityUtils.js",
 ];
 
 interface FileDetail {
   file: string;
-  size: number;
-  gzipSize: number;
-  sizeFormatted: string;
-  gzipSizeFormatted: string;
-  isMinified: boolean;
+  sourceSize: number;
+  sourceGzipSize: number;
+  minifiedSize: number;
+  minifiedGzipSize: number;
 }
 
-/**
- * Format bytes to a human-readable format
- */
 function formatBytes(bytes: number, decimals = 2): string {
   if (bytes === 0) return "0 Bytes";
 
   const k = 1024;
   const dm = decimals < 0 ? 0 : decimals;
   const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
-
   const i = Math.floor(Math.log(bytes) / Math.log(k));
 
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
 
-/**
- * Minify JavaScript using Terser
- */
+function ensureBuildArtifacts(paths: string[]): void {
+  const missingFiles = paths.filter((file) => !fs.existsSync(file));
+
+  if (missingFiles.length === 0) return;
+
+  console.log("Build artifacts missing. Running npm run build first.\n");
+  execFileSync("npm", ["run", "build"], { stdio: "inherit" });
+}
+
 async function minifyCode(
   filePath: string
 ): Promise<{ minified: string; size: number; gzipSize: number }> {
+  const tempOutputPath = `${filePath}.min.js`;
+
   try {
-    const tempOutputPath = `${filePath}.min.js`;
+    execFileSync(
+      "npx",
+      ["terser", filePath, "--compress", "--mangle", "--output", tempOutputPath],
+      { stdio: "pipe" }
+    );
 
-    // Run terser with subprocess to avoid memory issues
-    try {
-      execSync(
-        `npx terser ${filePath} --compress --mangle --output ${tempOutputPath}`
-      );
-    } catch (execError) {
-      const msg =
-        execError instanceof Error ? execError.message : String(execError);
-      console.error(`Minification failed for ${filePath}: ${msg}`);
-      throw execError;
-    }
-
-    // Read the minified file
     const minified = await readFile(tempOutputPath, "utf8");
     const size = Buffer.byteLength(minified);
-
-    // Calculate gzip size
     const gzipContent = await gzip(Buffer.from(minified));
-    const gzipSize = gzipContent.length;
 
-    // Clean up temp file
-    fs.unlinkSync(tempOutputPath);
-
-    return { minified, size, gzipSize };
-  } catch (error) {
-    console.error(`Error minifying ${filePath}:`, error);
-    process.exitCode = 1;
-    return { minified: "", size: 0, gzipSize: 0 };
+    return { minified, size, gzipSize: gzipContent.length };
+  } finally {
+    if (fs.existsSync(tempOutputPath)) {
+      fs.unlinkSync(tempOutputPath);
+    }
   }
 }
 
-/**
- * Calculate the size of client imports
- */
-async function analyzeClientImports(): Promise<void> {
+async function analyzeRuntimeImports(): Promise<void> {
   try {
-    // Get package info
+    ensureBuildArtifacts(runtimeImportPaths);
+
     const packageJsonContent = await readFile("package.json", "utf8");
     const packageJson = JSON.parse(packageJsonContent);
 
     console.log(
-      `\n📦 Analyzing client import sizes for: ${
+      `\nAnalyzing runtime import sizes for: ${
         packageJson.name || "unsane"
       } v${packageJson.version || "development"}\n`
     );
 
-    // Calculate size and gzipped size for each client import
-    let standardSize = 0;
-    let standardMinSize = 0;
-    let standardMinGzipSize = 0;
     const fileDetails: FileDetail[] = [];
+    const sourceParts: string[] = [];
+    const minifiedParts: string[] = [];
 
-    for (const file of clientImportPaths) {
-      try {
-        if (!fs.existsSync(file)) {
-          console.log(`Skipping non-existent file: ${file}`);
-          continue;
-        }
+    for (const file of runtimeImportPaths) {
+      const source = await readFile(file, "utf8");
+      const sourceSize = Buffer.byteLength(source);
+      const sourceGzipSize = (await gzip(Buffer.from(source))).length;
+      const { minified, size: minifiedSize, gzipSize: minifiedGzipSize } =
+        await minifyCode(file);
 
-        const content = await readFile(file);
-        const size = content.length;
-        const gzipContent = await gzip(content);
-        const gzipSize = gzipContent.length;
-        const isMinified = file.includes(".min.js");
-
-        if (file.includes("htmlSanitizer.js")) {
-          standardSize = size;
-
-          // Minify the standard version
-          const { size: minSize, gzipSize: minGzipSize } = await minifyCode(
-            file
-          );
-          standardMinSize = minSize;
-          standardMinGzipSize = minGzipSize;
-
-          // Add this as a virtual file entry
-          fileDetails.push({
-            file: `${file} (minified)`,
-            size: minSize,
-            gzipSize: minGzipSize,
-            sizeFormatted: formatBytes(minSize),
-            gzipSizeFormatted: formatBytes(minGzipSize),
-            isMinified: true,
-          });
-        }
-
-        fileDetails.push({
-          file,
-          size,
-          gzipSize,
-          sizeFormatted: formatBytes(size),
-          gzipSizeFormatted: formatBytes(gzipSize),
-          isMinified,
-        });
-      } catch (e) {
-        const error = e as Error;
-        console.error(`Error processing file ${file}:`, error.message);
-      }
+      sourceParts.push(source);
+      minifiedParts.push(minified);
+      fileDetails.push({
+        file,
+        sourceSize,
+        sourceGzipSize,
+        minifiedSize,
+        minifiedGzipSize,
+      });
     }
 
-    // Sort by size (descending)
-    fileDetails.sort((a, b) => b.size - a.size);
+    fileDetails.sort((a, b) => b.sourceSize - a.sourceSize);
 
-    // Display results
-    console.log("📄 Client Import Sizes:");
+    console.log("Runtime Import Files:");
     console.log(
-      "-------------------------------------------------------------"
+      "-------------------------------------------------------------------------------"
     );
-    console.log("  File                        | Size        | Gzipped Size");
     console.log(
-      "-------------------------------------------------------------"
+      "  File                             | Source   | Gzip     | Minified | Min+Gzip"
     );
+    console.log(
+      "-------------------------------------------------------------------------------"
+    );
+
     for (const detail of fileDetails) {
-      const fileName = detail.file.padEnd(30);
-      const size = detail.sizeFormatted.padEnd(12);
-      console.log(`  ${fileName} | ${size} | ${detail.gzipSizeFormatted}`);
+      console.log(
+        `  ${detail.file.padEnd(32)} | ${formatBytes(detail.sourceSize).padEnd(
+          8
+        )} | ${formatBytes(detail.sourceGzipSize).padEnd(8)} | ${formatBytes(
+          detail.minifiedSize
+        ).padEnd(8)} | ${formatBytes(detail.minifiedGzipSize)}`
+      );
     }
+
     console.log(
-      "-------------------------------------------------------------\n"
+      "-------------------------------------------------------------------------------\n"
     );
 
-    // Summary
-    console.log("📊 Size Summary:");
-    console.log(`  • Unpacked: ${formatBytes(standardSize)}`);
-    console.log(`  • Minified: ${formatBytes(standardMinSize)}`);
-    console.log(`  • Gzipped (minified): ${formatBytes(standardMinGzipSize)}`);
-    console.log(`  • Compression ratio: ${(100 - (standardMinGzipSize / standardSize) * 100).toFixed(1)}%\n`);
+    const combinedSource = sourceParts.join("\n");
+    const combinedMinified = minifiedParts.join("\n");
+    const sourceSize = Buffer.byteLength(combinedSource);
+    const sourceGzipSize = (await gzip(Buffer.from(combinedSource))).length;
+    const minifiedSize = Buffer.byteLength(combinedMinified);
+    const minifiedGzipSize = (await gzip(Buffer.from(combinedMinified))).length;
 
+    console.log("Size Summary:");
+    console.log(`  - Runtime import closure: ${formatBytes(sourceSize)}`);
+    console.log(`  - Runtime import closure gzipped: ${formatBytes(sourceGzipSize)}`);
+    console.log(`  - Minified runtime closure: ${formatBytes(minifiedSize)}`);
+    console.log(
+      `  - Minified + gzipped runtime closure: ${formatBytes(minifiedGzipSize)}`
+    );
+    console.log(
+      `  - Compression ratio: ${(
+        100 -
+        (minifiedGzipSize / sourceSize) * 100
+      ).toFixed(1)}%\n`
+    );
   } catch (error) {
     console.error(
-      "Error analyzing client imports:",
+      "Error analyzing runtime imports:",
       error instanceof Error ? error.message : String(error)
     );
     process.exit(1);
   }
 }
 
-// Run the analysis
-analyzeClientImports();
+analyzeRuntimeImports();

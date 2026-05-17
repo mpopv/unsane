@@ -1,5 +1,51 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+- Fixed size analysis to inspect the current `dist/` runtime import closure instead of stale `dist/src/` paths.
+- Clarified that URL protocols are intentionally fixed to Unsane's conservative allowlist rather than configurable through an `allowedProtocols` option.
+- Raised the documented Node.js support floor to `>=18.18.0`, matching the current toolchain and CI coverage.
+
+### Improvements
+- Strengthened CI to run lint, tests, build, size analysis, package dry-run checks, and package-consumption smoke tests on supported development Node versions.
+- Added a corpus-style security regression suite for executable-output invariants.
+- Added deterministic generated-input sanitizer fuzz coverage.
+- Broadened differential sanitizer checks to assert hostile-input invariants against DOMPurify and `sanitize-html`.
+- Added package smoke coverage for ESM import, CommonJS require, and CLI stdin usage.
+- Simplified inert text handling to decode and escape text directly without a misleading dangerous-word pass.
+
+## 0.0.19 (2025-10-22)
+
+### Security Improvements
+- Added OWASP-vector sanitizer coverage and differential checks against DOMPurify and `sanitize-html`.
+- Migrated ESLint configuration to flat config and refreshed security documentation.
+- Hardened malformed-markup handling in sanitizer tests and implementation.
+
+## 0.0.18 (2025-10-22)
+
+### Fixes
+- Fixed CI and lint compatibility with the current ESLint dependency stack.
+
+## 0.0.17 (2025-10-22)
+
+### Changes
+- Release metadata update only.
+
+## 0.0.16 (2025-10-22)
+
+### Changes
+- Release metadata update only.
+
+## 0.0.15 (2025-10-22)
+
+### Improvements
+- Added Node.js engine metadata and documented the Node.js requirement.
+- Added the `unsane` CLI for stdin-to-stdout sanitization.
+- Added npm package file controls and stopped tracking generated `dist/` output.
+- Added initial GitHub Actions CI coverage for linting and tests.
+- Fixed CommonJS build output paths and release build compatibility.
+
 ## 0.0.14 (2025-03-04)
 
 ### Changes

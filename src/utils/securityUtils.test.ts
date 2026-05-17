@@ -1,9 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   containsDangerousContent,
-  sanitizeTextContent,
   ALLOWED_PROTOCOLS,
-  EncodeOptions,
   DANGEROUS_CONTENT,
 } from "./securityUtils.js";
 
@@ -83,53 +81,6 @@ describe("Security Utils", () => {
       expect(containsDangerousContent('<div class="test">')).toBe(false);
       expect(containsDangerousContent("Regular text with numbers 123")).toBe(
         false
-      );
-    });
-  });
-
-  describe("sanitizeTextContent", () => {
-    it("should handle empty or invalid input", () => {
-      expect(sanitizeTextContent("")).toBe("");
-      expect(sanitizeTextContent(null as unknown as string)).toBe("");
-      expect(sanitizeTextContent(undefined as unknown as string)).toBe("");
-    });
-
-    it("should sanitize dangerous patterns with default encoder", () => {
-      expect(sanitizeTextContent("javascript:alert(1)")).toBe(
-        "javascript:alert(1)"
-      );
-      expect(sanitizeTextContent("<script>alert(1)</script>")).toBe(
-        "<script>alert(1)</script>"
-      );
-      expect(sanitizeTextContent("onclick=evil()")).toBe("onclick=evil()");
-    });
-
-    it("should use custom encoder to encode dangerous patterns", () => {
-      const mockEncoder = (s: string) => `[ENCODED:${s}]`;
-      const input = "javascript:alert(1)";
-      const output = sanitizeTextContent(input, mockEncoder);
-      expect(output).toBe("[ENCODED:javascript]:[ENCODED:alert](1)");
-    });
-
-    it("should handle encoder options for dangerous patterns", () => {
-      const mockEncoder = (s: string, o?: EncodeOptions) =>
-        o?.useNamedReferences ? `[NAMED:${s}]` : `[HEX:${s}]`;
-      const input = "javascript:alert(1)";
-      const output = sanitizeTextContent(input, mockEncoder);
-      expect(output).toBe("[NAMED:javascript]:[NAMED:alert](1)");
-    });
-
-    it("should preserve safe content", () => {
-      const mockEncoder = (s: string) => `[ENCODED:${s}]`;
-
-      expect(sanitizeTextContent("Hello World", mockEncoder)).toBe(
-        "Hello World"
-      );
-      expect(sanitizeTextContent("Regular text 123", mockEncoder)).toBe(
-        "Regular text 123"
-      );
-      expect(sanitizeTextContent("<div>Safe HTML</div>", mockEncoder)).toBe(
-        "<div>Safe HTML</div>"
       );
     });
   });

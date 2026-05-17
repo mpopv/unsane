@@ -6,7 +6,7 @@ A tiny, zero-dependency, run-anywhere HTML sanitization library written in TypeS
 
 ## Features
 
-- **Lightweight**: ~3.2KB minified, ~1.4KB minified+gzipped
+- **Lightweight**: ~5.5KB minified runtime import closure, ~2.4KB minified+gzipped
 - **Zero dependencies**: Includes internal HTML entity encoder/decoder and state machine tokenizer
 - **Run anywhere**: Doesn't rely on DOM APIs, JSDOM, or Node APIs, so you can use in any environment
 
@@ -18,7 +18,7 @@ npm install unsane
 
 ## Requirements
 
-Unsane requires **Node.js 14 or later**.
+Unsane requires **Node.js 18.18.0 or later**.
 
 ## Usage
 
@@ -55,11 +55,8 @@ const options = {
   allowedAttributes: {
     a: ["href", "target"],
     img: ["src", "alt", "width", "height"],
-  "*": ["id", "class"], // Attributes allowed on all elements
-  },
-
-  // Allowed URL schemes for href/src attributes
-  allowedProtocols: ["http:", "https:", "mailto:"]
+    "*": ["id", "class"], // Attributes allowed on all elements
+  }
 };
 
 const dirty =
@@ -73,8 +70,10 @@ Available options:
 - `allowedTags` – array of tag names that are kept in the sanitized output.
 - `allowedAttributes` – object mapping tag names to allowed attributes. Use
   `"*"` for attributes allowed on all tags.
-- `allowedProtocols` – array of URL protocols allowed in attributes like
-  `href` or `src`.
+
+URL-bearing attributes use a fixed conservative protocol allowlist:
+`http:`, `https:`, `mailto:`, `tel:`, `ftp:`, and `sms:`. Custom protocol
+allowlists are intentionally not part of the public API.
 
 ### HTML Entity Functions
 
@@ -104,15 +103,16 @@ echo '<script>alert("xss")</script>' | npx unsane
 
 This reads HTML from `stdin` and prints the sanitized result to `stdout`.
 
-## Bundle Size
+## Runtime Size
 
 This library is designed to be lightweight while providing comprehensive HTML sanitization:
 
-| Metric                 | Size         |
-| ---------------------- | ------------ |
-| Unpacked               | ~15.69 KB    |
-| Minified               | ~3.1 KB      |
-| **Minified + Gzipped** | **~1.31 KB** |
+| Metric                                 | Size         |
+| -------------------------------------- | ------------ |
+| Runtime import closure                 | ~24.88 KB    |
+| Runtime import closure gzipped         | ~6.34 KB     |
+| Minified runtime closure               | ~5.45 KB     |
+| **Minified + gzipped runtime closure** | **~2.35 KB** |
 
 You can check the package size yourself with:
 
@@ -122,9 +122,9 @@ npm run analyze-size
 
 ## Threat Model
 
-- **Supported contexts**: Designed for server-side rendering pipelines and JavaScript runtimes (Node.js ≥14, Cloudflare Workers, Deno) where DOM APIs are unavailable. Browser usage is possible, but the sanitizer never mutates DOM nodes directly; it only returns sanitized HTML strings.
+- **Supported contexts**: Designed for server-side rendering pipelines and JavaScript runtimes (Node.js ≥18.18.0, Cloudflare Workers, Deno) where DOM APIs are unavailable. Browser usage is possible, but the sanitizer never mutates DOM nodes directly; it only returns sanitized HTML strings.
 - **Supported inputs**: Operates on HTML *fragments* (snippets destined for innerHTML/text interpolation). Full documents (`<!DOCTYPE>`, `<html>`, `<head>`) are normalized but not guaranteed to preserve structure.
-- **Guarantees**: Removes elements outside a conservative allowlist, strips disallowed attributes (especially event handlers and URL-bearing attributes with non-HTTP(S)/mailto/tel/ftp/sms protocols), encodes suspicious inline text, and self-closes void tags.
+- **Guarantees**: Removes elements outside a conservative allowlist, strips disallowed attributes (especially event handlers and URL-bearing attributes with non-HTTP(S)/mailto/tel/ftp/sms protocols), normalizes and escapes inline text, and self-closes void tags.
 - **Non-goals / exclusions**: Does **not** sanitize or interpret CSS (`style` attributes are dropped), JavaScript, MathML, or SVG namespaces—content in those namespaces is removed rather than partially sanitized. It does not attempt to sanitize inline `<style>` blocks or external resources (`<link>`, `<script>`, `<iframe>`, etc.) and should be paired with CSPs.
 - **Consumer responsibilities**: Validate that customized `allowedTags`/`allowedAttributes` meet your application’s needs, run application-specific allowlist tests, and apply additional sanitization for CSS/URL rewriting if end users can supply styles or alternate protocols.
 - **Intended use**: Defense-in-depth for semi-trusted markup (e.g., Markdown already filtered elsewhere). Do not treat Unsane as a drop-in replacement for battle-tested libraries like DOMPurify without additional auditing, fuzzing, and monitoring.

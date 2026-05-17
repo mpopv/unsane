@@ -11,6 +11,8 @@ export interface SanitizerOptions {
   /**
    * Object mapping tag names to arrays of allowed attribute names
    * A special "*" key can be used for attributes allowed on all elements
+   *
+   * URL-bearing attributes use Unsane's fixed conservative protocol allowlist.
    */
   allowedAttributes?: Record<string, string[]>;
 

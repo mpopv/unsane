@@ -24,6 +24,7 @@
     "prepare": "npm run build",
     "clean": "rm -rf dist",
     "analyze-size": "tsx measure-size.ts",
+    "smoke:package": "node scripts/package-smoke-test.mjs",
     "release": "bin/release.sh"
   },
   "keywords": [
@@ -43,7 +44,7 @@
   },
   "homepage": "https://github.com/mpopv/unsane#readme",
   "engines": {
-    "node": ">=14"
+    "node": ">=18.18.0"
   },
   "devDependencies": {
     "@types/node": "^22.13.9",

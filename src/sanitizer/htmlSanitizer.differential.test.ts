@@ -98,6 +98,55 @@ const benignCases = [
   },
 ];
 
+const executableOutputPatterns = [
+  /<script\b/i,
+  /<style\b/i,
+  /<iframe\b/i,
+  /<object\b/i,
+  /<svg\b/i,
+  /<math\b/i,
+  /\son[a-z]+\s*=/i,
+  /\sstyle\s*=/i,
+  /\s(?:href|src|action|formaction|xlink:href)=["']?\s*(?:javascript|data|vbscript|file|blob|mhtml|filesystem):/i,
+];
+
+const hostileCases = [
+  {
+    name: "javascript anchor",
+    html: '<a href="javascript:alert(1)" onclick="alert(1)">link</a>',
+  },
+  {
+    name: "data URL anchor",
+    html: '<a href="data:text/html,<script>alert(1)</script>">link</a>',
+  },
+  {
+    name: "style URL payload",
+    html: '<div style="background-image:url(javascript:alert(1))">payload</div>',
+  },
+  {
+    name: "svg link payload",
+    html: '<svg><a xlink:href="javascript:alert(1)">x</a></svg>',
+  },
+  {
+    name: "math payload",
+    html: '<math><mi xlink:href="data:x">x</mi></math>',
+  },
+  {
+    name: "iframe payload",
+    html: '<iframe srcdoc="<script>alert(1)</script>"></iframe><p>ok</p>',
+  },
+  {
+    name: "malformed nested script",
+    html: "<div><scr<script>ipt>alert(1)</script><span>ok</span></div>",
+  },
+];
+
+function expectExecutableOutputInvariants(html: string): void {
+  for (const pattern of executableOutputPatterns) {
+    expect(html).not.toMatch(pattern);
+  }
+}
+
 describe("htmlSanitizer differential behavior", () => {
   for (const testCase of benignCases) {
     it(`matches reference sanitizers for ${testCase.name}`, () => {
@@ -110,6 +159,20 @@ describe("htmlSanitizer differential behavior", () => {
       );
 
       expect([domPurifyResult, sanitizeHtmlResult]).toContain(unsaneResult);
+    });
+  }
+
+  for (const testCase of hostileCases) {
+    it(`matches reference sanitizer invariants for ${testCase.name}`, () => {
+      const results = [
+        sanitize(testCase.html),
+        sanitizeWithDOMPurify(testCase.html),
+        sanitizeWithSanitizeHtml(testCase.html),
+      ].map(canonicalize);
+
+      for (const result of results) {
+        expectExecutableOutputInvariants(result);
+      }
     });
   }
 });

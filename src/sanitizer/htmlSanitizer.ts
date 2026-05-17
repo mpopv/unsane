@@ -12,8 +12,7 @@
  *   allowlist check. Attribute/value pairs are buffered until the tag closes
  *   so that removal decisions are made on the complete attribute list.
  * - Text nodes are emitted only after entity decoding + re-encoding, which
- *   prevents double encoding while still allowing `sanitizeTextContent` to
- *   neutralize suspicious substrings.
+ *   prevents double encoding while preserving text as inert text.
  * - `stack` tracks only allowed, non-void elements. Whenever structural
  *   anomalies are detected (e.g., `<div>` inside `<p>`), we eagerly close
  *   mismatched ancestors to keep the output tree balanced.
@@ -25,10 +24,7 @@
 import { DEFAULT_OPTIONS } from "./config.js";
 import { SanitizerOptions } from "../types.js";
 import { encode, decode } from "../utils/htmlEntities.js";
-import {
-  containsDangerousContent,
-  sanitizeTextContent,
-} from "../utils/securityUtils.js";
+import { containsDangerousContent } from "../utils/securityUtils.js";
 
 // Define void elements (tags that should be self-closing)
 const VOID_ELEMENTS = new Set([
@@ -189,11 +185,10 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
           })
           .join("");
 
-        // Decode any entities, then sanitize and re-encode
+        // Decode any entities, then re-encode as inert text
         // This handles both regular text and text with entities in one path
         const decoded = decode(cleanText);
-        const sanitizedText = sanitizeTextContent(decoded, encode);
-        output += encode(sanitizedText, { escapeOnly: true });
+        output += encode(decoded, { escapeOnly: true });
       }
 
       textBuffer = "";

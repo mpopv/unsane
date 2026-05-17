@@ -2,14 +2,6 @@
  * Security utilities for HTML sanitization
  */
 
-// Interface for encoder options
-export interface EncodeOptions {
-  useNamedReferences?: boolean;
-  encodeEverything?: boolean;
-  decimal?: boolean;
-  escapeOnly?: boolean;
-}
-
 // Only these protocols are allowed (allowlist approach)
 export const ALLOWED_PROTOCOLS = new Set([
   "http:",
@@ -91,31 +83,6 @@ export function containsDangerousContent(value: string): boolean {
   }
 
   return false;
-}
-
-/**
- * Sanitize text content by removing or encoding potentially dangerous patterns
- *
- * @param text Text to sanitize
- * @param encode Function to encode unsafe content
- * @returns Sanitized text
- */
-export function sanitizeTextContent(
-  text: string,
-  encodeFunc?: (s: string, o?: EncodeOptions) => string
-): string {
-  if (!text) return "";
-
-  // Simple regex pattern for common dangerous strings
-  const dangerousPattern =
-    /javascript|script|alert|eval|onerror|onclick|on\w+\s*=|\(\s*\)|function/gi;
-
-  // Use the provided encode function or default to a basic encoder
-  const encoder = encodeFunc || ((s: string) => s);
-
-  return text.replace(dangerousPattern, (match) =>
-    encoder(match, { useNamedReferences: true })
-  );
 }
 
 // No default export
