@@ -56,7 +56,7 @@ const options = {
     a: ["href", "target"],
     img: ["src", "alt", "width", "height"],
     "*": ["id", "class"], // Attributes allowed on all elements
-  }
+  },
 };
 
 const dirty =
@@ -73,7 +73,22 @@ Available options:
 
 URL-bearing attributes use a fixed conservative protocol allowlist:
 `http:`, `https:`, `mailto:`, `tel:`, `ftp:`, and `sms:`. Custom protocol
-allowlists are intentionally not part of the public API.
+allowlists are intentionally not part of the public API. Relative URLs and
+fragments are allowed, while protocol-relative URLs (`//example.com`) are
+removed.
+
+### Security Notes
+
+- Unsane sanitizes HTML fragments, not full document policies. Keep Content
+  Security Policy, Trusted Types, and framework escaping in place.
+- URL attributes are checked after entity decoding and protocol normalization,
+  but URL rewriting and link reputation checks remain the caller's job.
+- CSS is not sanitized. `style` attributes and `<style>` elements are dropped
+  instead of parsed.
+- SVG and MathML are outside the supported safe subset and are removed rather
+  than partially sanitized.
+- If you expand the tag or attribute allowlists, add app-specific tests for the
+  markup you now accept.
 
 ### HTML Entity Functions
 
@@ -109,10 +124,10 @@ This library is designed to be lightweight while providing comprehensive HTML sa
 
 | Metric                                 | Size         |
 | -------------------------------------- | ------------ |
-| Runtime import closure                 | ~24.88 KB    |
-| Runtime import closure gzipped         | ~6.34 KB     |
-| Minified runtime closure               | ~5.45 KB     |
-| **Minified + gzipped runtime closure** | **~2.35 KB** |
+| Runtime import closure                 | ~28.24 KB    |
+| Runtime import closure gzipped         | ~7.13 KB     |
+| Minified runtime closure               | ~7.96 KB     |
+| **Minified + gzipped runtime closure** | **~3.11 KB** |
 
 You can check the package size yourself with:
 
@@ -120,11 +135,14 @@ You can check the package size yourself with:
 npm run analyze-size
 ```
 
+This command enforces conservative runtime-size budgets in CI so accidental
+bundle growth fails before release.
+
 ## Threat Model
 
 - **Supported contexts**: Designed for server-side rendering pipelines and JavaScript runtimes (Node.js ≥18.18.0, Cloudflare Workers, Deno) where DOM APIs are unavailable. Browser usage is possible, but the sanitizer never mutates DOM nodes directly; it only returns sanitized HTML strings.
-- **Supported inputs**: Operates on HTML *fragments* (snippets destined for innerHTML/text interpolation). Full documents (`<!DOCTYPE>`, `<html>`, `<head>`) are normalized but not guaranteed to preserve structure.
-- **Guarantees**: Removes elements outside a conservative allowlist, strips disallowed attributes (especially event handlers and URL-bearing attributes with non-HTTP(S)/mailto/tel/ftp/sms protocols), normalizes and escapes inline text, and self-closes void tags.
+- **Supported inputs**: Operates on HTML _fragments_ (snippets destined for innerHTML/text interpolation). Full documents (`<!DOCTYPE>`, `<html>`, `<head>`) are normalized but not guaranteed to preserve structure.
+- **Guarantees**: Removes elements outside a conservative allowlist, strips disallowed attributes (especially event handlers, protocol-relative URLs, and URL-bearing attributes with non-HTTP(S)/mailto/tel/ftp/sms protocols), normalizes and escapes inline text, and self-closes void tags.
 - **Non-goals / exclusions**: Does **not** sanitize or interpret CSS (`style` attributes are dropped), JavaScript, MathML, or SVG namespaces—content in those namespaces is removed rather than partially sanitized. It does not attempt to sanitize inline `<style>` blocks or external resources (`<link>`, `<script>`, `<iframe>`, etc.) and should be paired with CSPs.
 - **Consumer responsibilities**: Validate that customized `allowedTags`/`allowedAttributes` meet your application’s needs, run application-specific allowlist tests, and apply additional sanitization for CSS/URL rewriting if end users can supply styles or alternate protocols.
 - **Intended use**: Defense-in-depth for semi-trusted markup (e.g., Markdown already filtered elsewhere). Do not treat Unsane as a drop-in replacement for battle-tested libraries like DOMPurify without additional auditing, fuzzing, and monitoring.
@@ -149,7 +167,6 @@ Works in all modern browsers as well as Node.js environments. No DOM or browser 
 ## Contributing
 
 Please see [CONTRIBUTING.md](CONTRIBUTING.md) for instructions on setting up the project and running tests. The `dist` directory is generated and should not be committed.
-
 
 ## License
 

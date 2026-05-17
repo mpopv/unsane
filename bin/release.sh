@@ -1,41 +1,71 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage: ./release.sh 0.0.2
+# Usage: bin/release.sh 0.0.20
 
 VERSION=${1:-}
+MAIN_BRANCH=${MAIN_BRANCH:-main}
+REMOTE=${REMOTE:-origin}
 
 if [[ -z "$VERSION" ]]; then
   echo "Usage: $0 <version>"
-  echo "Example: $0 0.0.2"
+  echo "Example: $0 0.0.20"
   exit 1
 fi
 
-# Optional sanity checks:
-# 1) Make sure you’re npm-logged in
-npm whoami >/dev/null 2>&1 || {
-  echo "Not logged into npm. Run 'npm login' first."
+if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+  echo "Version must be a semver string like 0.0.20 or 0.0.20-beta.1."
   exit 1
-}
+fi
 
-# 2) Run tests
-npm run test
+if ! command -v gh >/dev/null 2>&1; then
+  echo "GitHub CLI is required because publishing is triggered by a GitHub release."
+  exit 1
+fi
 
-# Bump version, commit & tag: includes "chore: release v0.0.2"
+current_branch=$(git rev-parse --abbrev-ref HEAD)
+if [[ "$current_branch" != "$MAIN_BRANCH" ]]; then
+  echo "Release must run from $MAIN_BRANCH; current branch is $current_branch."
+  exit 1
+fi
+
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  echo "Working tree must be clean before release."
+  exit 1
+fi
+
+git fetch "$REMOTE" "$MAIN_BRANCH" --tags
+
+local_head=$(git rev-parse HEAD)
+remote_head=$(git rev-parse "$REMOTE/$MAIN_BRANCH")
+if [[ "$local_head" != "$remote_head" ]]; then
+  echo "Local $MAIN_BRANCH must match $REMOTE/$MAIN_BRANCH before release."
+  exit 1
+fi
+
+if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+  echo "Tag v$VERSION already exists."
+  exit 1
+fi
+
+gh auth status >/dev/null
+
+npm ci
+npm audit
+npm run lint
+npm test
+npm run build
+npm run analyze-size
+npm pack --dry-run
+npm run smoke:package
+
 npm version "$VERSION" -m "chore: release v%s"
+git push "$REMOTE" "$MAIN_BRANCH" --follow-tags
 
-# Push commits and tag
-git push origin main --follow-tags
+gh release create "v$VERSION" \
+  --target "$MAIN_BRANCH" \
+  --title "v$VERSION" \
+  --notes "Release $VERSION"
 
-# Create GitHub release (requires GitHub CLI, 'gh')
-if command -v gh &> /dev/null; then
-  gh release create "v$VERSION" \
-    --title "v$VERSION" \
-    --notes "Release $VERSION"
-else
-  echo "GitHub CLI not found. Skipping GitHub release creation."
-  echo "Consider installing GitHub CLI and creating release manually."
-fi
-
-# Publish to npm
-npm publish --access public
+echo "Created GitHub release v$VERSION."
+echo "npm publishing is handled by .github/workflows/publish.yml via trusted publishing."

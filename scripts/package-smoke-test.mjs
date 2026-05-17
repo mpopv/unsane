@@ -21,7 +21,7 @@ function assertCli(cwd) {
     cwd,
     "node_modules",
     ".bin",
-    process.platform === "win32" ? "unsane.cmd" : "unsane"
+    process.platform === "win32" ? "unsane.cmd" : "unsane",
   );
   const result = spawnSync(binPath, [], {
     cwd,
@@ -33,12 +33,120 @@ function assertCli(cwd) {
 
   if (result.status !== 0) {
     throw new Error(
-      `CLI smoke test failed with exit ${result.status}: ${result.stderr}`
+      `CLI smoke test failed with exit ${result.status}: ${result.stderr}`,
     );
   }
 
   if (result.stdout !== "<div>ok</div>") {
     throw new Error(`Unexpected CLI output: ${JSON.stringify(result.stdout)}`);
+  }
+}
+
+function runBin(cwd, binName, args) {
+  const binPath = join(
+    cwd,
+    "node_modules",
+    ".bin",
+    process.platform === "win32" ? `${binName}.cmd` : binName,
+  );
+  run(binPath, args, { cwd, stdio: "inherit" });
+}
+
+function assertTypes(cwd) {
+  writeFileSync(
+    join(cwd, "tsconfig.json"),
+    JSON.stringify(
+      {
+        compilerOptions: {
+          module: "NodeNext",
+          moduleResolution: "NodeNext",
+          noEmit: true,
+          strict: true,
+          target: "ES2020",
+        },
+        include: ["types-smoke.ts"],
+      },
+      null,
+      2,
+    ),
+  );
+
+  writeFileSync(
+    join(cwd, "types-smoke.ts"),
+    `import { sanitize, escape, encode, decode, type Sanitizer, type SanitizerOptions } from "unsane";
+
+const options: SanitizerOptions = {
+  allowedTags: ["a"],
+  allowedAttributes: {
+    a: ["href"],
+    "*": ["class"],
+  },
+};
+
+const sanitized: string = sanitize('<a href="/docs" class="link">Docs</a>', options);
+const escaped: string = escape(sanitized);
+const encoded: string = encode(escaped);
+const decoded: string = decode(encoded);
+const sanitizer: Sanitizer = { sanitize };
+
+sanitizer.sanitize(decoded, options);
+`,
+  );
+
+  runBin(cwd, "tsc", ["--project", "tsconfig.json"]);
+}
+
+const EXPECTED_PACKED_FILES = [
+  "LICENSE",
+  "README.md",
+  "bin/unsane.js",
+  "dist/cjs/index.d.ts",
+  "dist/cjs/index.js",
+  "dist/cjs/package.json",
+  "dist/cjs/sanitizer/config.d.ts",
+  "dist/cjs/sanitizer/config.js",
+  "dist/cjs/sanitizer/htmlSanitizer.d.ts",
+  "dist/cjs/sanitizer/htmlSanitizer.js",
+  "dist/cjs/types.d.ts",
+  "dist/cjs/types.js",
+  "dist/cjs/utils/htmlEntities.d.ts",
+  "dist/cjs/utils/htmlEntities.js",
+  "dist/cjs/utils/securityUtils.d.ts",
+  "dist/cjs/utils/securityUtils.js",
+  "dist/index.d.ts",
+  "dist/index.js",
+  "dist/sanitizer/config.d.ts",
+  "dist/sanitizer/config.js",
+  "dist/sanitizer/htmlSanitizer.d.ts",
+  "dist/sanitizer/htmlSanitizer.js",
+  "dist/types.d.ts",
+  "dist/types.js",
+  "dist/utils/htmlEntities.d.ts",
+  "dist/utils/htmlEntities.js",
+  "dist/utils/securityUtils.d.ts",
+  "dist/utils/securityUtils.js",
+  "package.json",
+];
+
+function assertPackageContents(packResult) {
+  const actualFiles = packResult.files.map((file) => file.path).sort();
+  const expectedFiles = [...EXPECTED_PACKED_FILES].sort();
+  const actualSet = new Set(actualFiles);
+  const expectedSet = new Set(expectedFiles);
+
+  const missing = expectedFiles.filter((file) => !actualSet.has(file));
+  const extra = actualFiles.filter((file) => !expectedSet.has(file));
+
+  if (missing.length || extra.length) {
+    throw new Error(
+      [
+        "Packed file list changed unexpectedly.",
+        missing.length ? `Missing: ${missing.join(", ")}` : "",
+        extra.length ? `Extra: ${extra.join(", ")}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    );
   }
 }
 
@@ -58,16 +166,24 @@ try {
     packDir,
   ]);
   const packResult = JSON.parse(packOutput)[0];
+  assertPackageContents(packResult);
   const tarballPath = resolve(packDir, packResult.filename);
 
   writeFileSync(join(consumerDir, "package.json"), '{"type":"module"}\n');
   run(
     "npm",
-    ["install", "--ignore-scripts", "--no-audit", "--no-fund", tarballPath],
+    [
+      "install",
+      "--ignore-scripts",
+      "--no-audit",
+      "--no-fund",
+      tarballPath,
+      "typescript@^5.9.3",
+    ],
     {
       cwd: consumerDir,
       stdio: "inherit",
-    }
+    },
   );
 
   const esmScript = join(consumerDir, "esm-smoke.mjs");
@@ -84,7 +200,7 @@ if (escape('<x>') !== "&lt;x&gt;") {
 if (decode(encode("<x>")) !== "<x>") {
   throw new Error("ESM encode/decode failed");
 }
-`
+`,
   );
   runNode(esmScript, consumerDir);
 
@@ -96,10 +212,11 @@ if (decode(encode("<x>")) !== "<x>") {
 if (sanitize('<img src="javascript:alert(1)"><span>ok</span>') !== "<img /><span>ok</span>") {
   throw new Error("CJS sanitize failed");
 }
-`
+`,
   );
   runNode(cjsScript, consumerDir);
   assertCli(consumerDir);
+  assertTypes(consumerDir);
 
   console.log("Package smoke test passed.");
 } finally {

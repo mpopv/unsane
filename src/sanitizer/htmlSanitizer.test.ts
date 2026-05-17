@@ -28,6 +28,19 @@ describe("htmlSanitizer", () => {
     expect(output).not.toContain("onclick");
   });
 
+  it("should normalize custom tag and attribute allowlists", () => {
+    const input = '<DiV CLASS="ok" DATA-ID="1">Text</dIv>';
+    const output = sanitize(input, {
+      allowedTags: ["DIV", "div"],
+      allowedAttributes: {
+        DIV: ["CLASS"],
+        div: ["DATA-ID"],
+      },
+    });
+
+    expect(output).toBe('<div class="ok" data-id="1">Text</div>');
+  });
+
   it("should preserve text content inside elements", () => {
     const input = "<div>Hello world</div>";
     const output = sanitize(input);
@@ -146,7 +159,7 @@ describe("htmlSanitizer", () => {
       sanitize("<div checked disabled>test</div>", {
         allowedTags: ["div"],
         allowedAttributes: { div: ["checked", "disabled"] },
-      })
+      }),
     ).toBe("<div checked disabled>test</div>");
   });
 
@@ -154,14 +167,30 @@ describe("htmlSanitizer", () => {
     expect(sanitize('<div attr="">test</div>')).toBe("<div>test</div>");
     expect(sanitize('<div attr = "value">test</div>')).toBe("<div>test</div>");
     expect(
-      sanitize('<div  class  =  "value1"   id  =  "value2"  >test</div>')
+      sanitize('<div  class  =  "value1"   id  =  "value2"  >test</div>'),
     ).toBe("<div class id>test</div>");
     expect(
       sanitize('<div class="c1" id="i1">test</div>', {
         allowedTags: ["div"],
         allowedAttributes: { div: ["class", "id"] },
-      })
+      }),
     ).toBe('<div class="c1" id="i1">test</div>');
+  });
+
+  it("should preserve explicit empty attributes separately from boolean attributes", () => {
+    expect(
+      sanitize('<a href="">Link</a>', {
+        allowedTags: ["a"],
+        allowedAttributes: { a: ["href"] },
+      }),
+    ).toBe('<a href="">Link</a>');
+
+    expect(
+      sanitize("<input disabled>", {
+        allowedTags: ["input"],
+        allowedAttributes: { input: ["disabled"] },
+      }),
+    ).toBe("<input disabled />");
   });
 
   it("should handle more complex double less-than cases", () => {
@@ -324,6 +353,28 @@ describe("htmlSanitizer", () => {
     }
   });
 
+  it("should allow safe URL attributes with suspicious-looking query text", () => {
+    const input = '<a href="https://example.com/search?q=alert(1)">Link</a>';
+    expect(sanitize(input)).toBe(input);
+  });
+
+  it("should block protocol-relative URL attributes", () => {
+    const input = '<a href="//example.com/path">Link</a>';
+    expect(sanitize(input)).toBe("<a>Link</a>");
+  });
+
+  it("should block entity-obfuscated URL protocols without relying on script keywords", () => {
+    const inputs = [
+      '<a href="j&#97;vascript:void(0)">Link</a>',
+      '<a href="javascript&colon;void(0)">Link</a>',
+      '<a href="jav&#x09;ascript:void(0)">Link</a>',
+    ];
+
+    for (const input of inputs) {
+      expect(sanitize(input)).toBe("<a>Link</a>");
+    }
+  });
+
   it("should block all non-whitelisted protocols", () => {
     const dangerousProtocols = [
       "javascript:",
@@ -371,14 +422,16 @@ describe("htmlSanitizer", () => {
     expect(output).toBe("<a>test</a>");
   });
 
-  it("should handle attributes with suspicious content", () => {
+  it("should preserve inert non-URL attributes with suspicious text", () => {
     const input =
       '<div data-test="javascript:alert(1)" title="alert(document.cookie)">test</div>';
     const output = sanitize(input, {
       allowedTags: ["div"],
       allowedAttributes: { div: ["data-test", "title"] },
     });
-    expect(output).toBe("<div>test</div>");
+    expect(output).toBe(
+      '<div data-test="javascript:alert(1)" title="alert(document.cookie)">test</div>',
+    );
   });
 
   it("should handle attributes with unicode escapes", () => {
@@ -393,7 +446,7 @@ describe("htmlSanitizer", () => {
   it("should handle script tags and content", () => {
     const input = "<div>before<script>alert(1)</script>after</div>";
     const output = sanitize(input);
-    expect(output).toBe("<div>before&gt;after</div>");
+    expect(output).toBe("<div>beforeafter</div>");
   });
 
   it("should filter attributes with dangerous characters", () => {
@@ -721,8 +774,7 @@ describe("htmlSanitizer", () => {
   it("should detect scripts with specific partial content", () => {
     const input = "<div><script>var x = 'test';</script></div>";
     const output = sanitize(input);
-    // The sanitizer preserves the ">" character in the output
-    expect(output).toBe("<div>&gt;</div>");
+    expect(output).toBe("<div></div>");
   });
 
   it("should handle complex script detection cases", () => {
@@ -932,8 +984,7 @@ describe("htmlSanitizer", () => {
     expect(output).toContain("<a");
     expect(output).toContain("Link");
 
-    // Additional test specifically for lines 65-66
-    // Test with a non-URL attribute that contains dangerous content
+    // Non-URL attributes are encoded as inert text instead of keyword-filtered.
     const inputWithDangerousAttr =
       '<div data-custom="javascript:alert(1)">Content</div>';
     const outputWithDangerousAttr = sanitize(inputWithDangerousAttr, {
@@ -941,8 +992,9 @@ describe("htmlSanitizer", () => {
       allowedAttributes: { div: ["data-custom"] },
     });
 
-    // The data-custom attribute with dangerous content should be removed
-    expect(outputWithDangerousAttr).not.toContain("data-custom");
+    expect(outputWithDangerousAttr).toContain(
+      'data-custom="javascript:alert(1)"',
+    );
     expect(outputWithDangerousAttr).toContain("<div");
     expect(outputWithDangerousAttr).toContain("Content");
   });
@@ -1243,7 +1295,7 @@ describe("htmlSanitizer", () => {
       allowedTags: ["div"],
       allowedAttributes: { div: ["data-test"] },
     });
-    expect(output1).not.toContain("data-test");
+    expect(output1).toContain('data-test="javascript:alert(1)"');
 
     const input2 = '<div data-attr="">Test</div>';
     const output2 = sanitize(input2, {
@@ -1322,7 +1374,7 @@ describe("htmlSanitizer", () => {
       allowedTags: ["div"],
       allowedAttributes: { div: ["title", "id"] },
     });
-    expect(extremeOutput1).not.toContain("title");
+    expect(extremeOutput1).toContain('title="javascript:alert(1)"');
     expect(extremeOutput1).toContain("id");
 
     // For line 396: Try with an empty attribute at the end of a tag
@@ -1347,36 +1399,28 @@ describe("htmlSanitizer", () => {
     expect(extremeOutput4).toBe("<div></div>");
   });
 
-  // Target lines 65-66 in htmlSanitizer.ts
-  it("should handle dangerous attribute values with extreme edge cases", () => {
-    // Create a test case that will specifically hit lines 65-66
-    // We need to create an attribute with a dangerous value that isn't a URL attribute
-
-    // First, let's create a custom sanitizer config that allows data-* attributes
+  it("should keep suspicious text inert in non-URL attributes", () => {
     const input =
       '<div data-test="javascript:alert(1)" data-other="eval(alert(2))">Test</div>';
 
-    // This should trigger the containsDangerousContent check but not be a URL attribute
     const output = sanitize(input, {
       allowedTags: ["div"],
       allowedAttributes: { div: ["data-test", "data-other"] },
     });
 
-    // The dangerous attributes should be removed
-    expect(output).not.toContain("data-test");
-    expect(output).not.toContain("data-other");
+    expect(output).toContain('data-test="javascript:alert(1)"');
+    expect(output).toContain('data-other="eval(alert(2))"');
     expect(output).toContain("<div");
     expect(output).toContain("Test");
     expect(output).toContain("</div>");
 
-    // Try another variation
     const input2 = '<span title="javascript:void(0)">Click</span>';
     const output2 = sanitize(input2, {
       allowedTags: ["span"],
       allowedAttributes: { span: ["title"] },
     });
 
-    expect(output2).not.toContain("title");
+    expect(output2).toContain('title="javascript:void(0)"');
     expect(output2).toContain("<span");
     expect(output2).toContain("Click");
   });
@@ -1461,39 +1505,38 @@ describe("htmlSanitizer", () => {
   });
 
   // Target lines 65-66 in htmlSanitizer.ts
-  it("should absolutely cover lines 65-66 in htmlSanitizer.ts", () => {
-    // We need to hit this specific condition:
-    // if (value && containsDangerousContent(value)) {
-
-    // This test directly tests dangerous content in a URL attribute
+  it("should allow suspicious non-URL attributes but filter unsafe characters", () => {
     const dangerousAttrs = [
       'javascript:alert("XSS")',
       "jAvaScRiPt:alert(1)",
       "data:text/html,<script>alert(1)</script>",
       "vbscript:msgbox(1)",
       "javascript&colon;alert(1)",
-      "java\u0000script:alert(1)", // Embedded NULL character
     ];
 
     for (const attr of dangerousAttrs) {
-      // Verify that our attribute is actually considered dangerous
       expect(containsDangerousContent(attr)).toBe(true);
 
-      // Test with multiple attributes, some dangerous some safe
       const input = `<div title="${attr}" id="safe" class="safe">Content</div>`;
       const output = sanitize(input, {
         allowedTags: ["div"],
         allowedAttributes: { div: ["title", "id", "class"] },
       });
 
-      // The dangerous attribute should be removed
-      expect(output).not.toContain("title");
-      // The safe attributes should be kept
+      expect(output).toContain("title=");
       expect(output).toContain("id");
       expect(output).toContain("class");
     }
 
-    // Also test with non-URL attributes that contain dangerous content
+    const unsafeControlCharInput =
+      '<div title="java\u0000script:alert(1)" id="safe">Content</div>';
+    const unsafeControlCharOutput = sanitize(unsafeControlCharInput, {
+      allowedTags: ["div"],
+      allowedAttributes: { div: ["title", "id"] },
+    });
+    expect(unsafeControlCharOutput).not.toContain("title");
+    expect(unsafeControlCharOutput).toContain("id");
+
     const extremeInput =
       '<div data-custom="javascript:alert(1)" data-other="javascript:void(0)">Test</div>';
     const extremeOutput = sanitize(extremeInput, {
@@ -1501,9 +1544,8 @@ describe("htmlSanitizer", () => {
       allowedAttributes: { div: ["data-custom", "data-other"] },
     });
 
-    // Both dangerous attributes should be filtered
-    expect(extremeOutput).not.toContain("data-custom");
-    expect(extremeOutput).not.toContain("data-other");
+    expect(extremeOutput).toContain('data-custom="javascript:alert(1)"');
+    expect(extremeOutput).toContain('data-other="javascript:void(0)"');
   });
 
   // Target line 396 in htmlSanitizer.ts
@@ -1637,5 +1679,4 @@ describe("htmlSanitizer", () => {
     expect(criticalOutput).toContain("id");
     expect(criticalOutput).toContain("test");
   });
-
 });

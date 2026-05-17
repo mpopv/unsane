@@ -24,7 +24,13 @@
 import { DEFAULT_OPTIONS } from "./config.js";
 import { SanitizerOptions } from "../types.js";
 import { encode, decode } from "../utils/htmlEntities.js";
-import { containsDangerousContent } from "../utils/securityUtils.js";
+import {
+  isSafeUrlAttributeValue,
+  isUrlAttribute,
+} from "../utils/securityUtils.js";
+
+type Attribute = [name: string, value: string, hasValue: boolean];
+type NormalizedOptions = Required<SanitizerOptions>;
 
 // Define void elements (tags that should be self-closing)
 const VOID_ELEMENTS = new Set([
@@ -44,6 +50,23 @@ const VOID_ELEMENTS = new Set([
   "wbr",
 ]);
 
+const SKIP_CONTENT_ELEMENTS = new Set([
+  "script",
+  "style",
+  "iframe",
+  "object",
+  "embed",
+  "template",
+  "textarea",
+  "title",
+  "xmp",
+  "noembed",
+  "noframes",
+  "noscript",
+  "svg",
+  "math",
+]);
+
 // Check if an attribute is considered dangerous
 function isDangerousAttribute(name: string): boolean {
   return (
@@ -55,6 +78,83 @@ function isDangerousAttribute(name: string): boolean {
   );
 }
 
+function normalizeList(values: string[]): string[] {
+  return [...new Set(values.map((value) => value.toLowerCase()))];
+}
+
+function normalizeAllowedAttributes(
+  attributes: Record<string, string[]>,
+): Record<string, string[]> {
+  const normalized: Record<string, string[]> = {};
+
+  for (const [tagName, attrs] of Object.entries(attributes)) {
+    const normalizedTagName = tagName.toLowerCase();
+    normalized[normalizedTagName] = normalizeList([
+      ...(normalized[normalizedTagName] || []),
+      ...attrs,
+    ]);
+  }
+
+  return normalized;
+}
+
+function normalizeOptions(options: NormalizedOptions): NormalizedOptions {
+  return {
+    ...options,
+    allowedTags: normalizeList(options.allowedTags),
+    allowedAttributes: normalizeAllowedAttributes(options.allowedAttributes),
+  };
+}
+
+function containsUnsafeAttributeChars(value: string): boolean {
+  return value.split("").some((char) => {
+    const code = char.charCodeAt(0);
+    return (
+      code <= 0x1f ||
+      (code >= 0x7f && code <= 0x9f) ||
+      (code >= 0x200c && code <= 0x200f) ||
+      code === 0xfeff
+    );
+  });
+}
+
+function readTagName(html: string, position: number): string {
+  const match = html.slice(position).match(/^[a-zA-Z][a-zA-Z0-9\-_]*/);
+  /* c8 ignore next */
+  if (!match) return "";
+  return match[0].toLowerCase();
+}
+
+function findTagEnd(html: string, position: number): number {
+  const tagEnd = html.indexOf(">", position);
+  return tagEnd === -1 ? html.length - 1 : tagEnd;
+}
+
+function findElementContentEnd(
+  html: string,
+  tagName: string,
+  openTagEnd: number,
+  tagStart: number,
+): number {
+  if (html.slice(tagStart, openTagEnd).trimEnd().endsWith("/")) {
+    return openTagEnd;
+  }
+
+  const closeTagStart = html
+    .toLowerCase()
+    .indexOf(`</${tagName}`, openTagEnd + 1);
+
+  if (closeTagStart === -1) {
+    return html.length - 1;
+  }
+
+  return findTagEnd(html, closeTagStart);
+}
+
+function shouldSkipElementContent(tagName: string): boolean {
+  return SKIP_CONTENT_ELEMENTS.has(tagName) || tagName.startsWith("script");
+}
+
 /**
  * Process and filter attributes for a tag, removing any dangerous attributes
  *
@@ -64,9 +164,9 @@ function isDangerousAttribute(name: string): boolean {
  * @returns String of sanitized attributes
  */
 function processAttributes(
-  attrs: Array<[string, string]>,
+  attrs: Attribute[],
   tagName: string,
-  allowedAttributesMap: Record<string, string[]>
+  allowedAttributesMap: Record<string, string[]>,
 ): string {
   // Get tag-specific allowed attributes
   const tagAllowedAttrs = allowedAttributesMap[tagName] || [];
@@ -78,9 +178,10 @@ function processAttributes(
   const allowedAttrs = [...tagAllowedAttrs, ...globalAttrs];
 
   let result = "";
+  const emittedAttrs = new Set<string>();
 
   // Process each attribute
-  for (const [name, value] of attrs) {
+  for (const [name, value, hasValue] of attrs) {
     const lowerName = name.toLowerCase();
 
     // Skip the attribute if it's not in the allowlist or it's a dangerous attribute pattern
@@ -88,36 +189,22 @@ function processAttributes(
       continue;
     }
 
-    // Filter attributes with dangerous URLs or values
-    if (value && containsDangerousContent(value)) {
-      // Remove the attribute completely for href/src/etc.
-      if (
-        lowerName === "href" ||
-        lowerName === "src" ||
-        lowerName === "action" ||
-        lowerName === "formaction" ||
-        lowerName === "xlink:href"
-      ) {
+    // Filter URL-bearing attributes with URL-specific protocol normalization.
+    if (isUrlAttribute(lowerName)) {
+      if (!isSafeUrlAttributeValue(value)) {
         continue;
       }
-
-      // For other attributes, try to sanitize the value
-      // but remove any that still look suspicious
-      if (
-        value.toLowerCase().includes("javascript") ||
-        value.toLowerCase().includes("script") ||
-        value.toLowerCase().includes("alert") ||
-        value.split("").some((char) => {
-          const code = char.charCodeAt(0);
-          return code <= 0x1f || (code >= 0x200c && code <= 0x200f);
-        })
-      ) {
-        continue;
-      }
+    } else if (value && containsUnsafeAttributeChars(value)) {
+      continue;
     }
 
+    if (emittedAttrs.has(lowerName)) {
+      continue;
+    }
+    emittedAttrs.add(lowerName);
+
     // Add the attribute to the output
-    if (value) {
+    if (hasValue) {
       result += ` ${lowerName}="${encode(value, { escapeOnly: true })}"`;
     } else {
       result += ` ${lowerName}`;
@@ -136,7 +223,7 @@ function processAttributes(
  */
 export function sanitize(html: string, options?: SanitizerOptions): string {
   // Merge default options with user options
-  const mergedOptions = { ...DEFAULT_OPTIONS, ...options };
+  const mergedOptions = normalizeOptions({ ...DEFAULT_OPTIONS, ...options });
 
   // Stack for tracking open tags
   const stack: string[] = [];
@@ -165,7 +252,7 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
   let attrValueBuffer = "";
   let isClosingTag = false;
   let inQuote = "";
-  let currentAttrs: Array<[string, string]> = [];
+  let currentAttrs: Attribute[] = [];
   let isSelfClosing = false;
 
   // Helper function to emit text
@@ -198,11 +285,11 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
   // Function to handle a start tag
   function handleStartTag(
     tagName: string,
-    attrs: Array<[string, string]>,
-    selfClosing: boolean
+    attrs: Attribute[],
+    selfClosing: boolean,
   ) {
-    // Skip any script tags entirely for security
-    if (tagName === "script") {
+    // Skip dangerous raw-content and namespace containers entirely for security.
+    if (shouldSkipElementContent(tagName)) {
       return;
     }
 
@@ -225,7 +312,7 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
         const attrsStr = processAttributes(
           attrs,
           tagName,
-          mergedOptions.allowedAttributes
+          mergedOptions.allowedAttributes,
         );
 
         // Always use self-closing format
@@ -236,7 +323,7 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
         const attrsStr = processAttributes(
           attrs,
           tagName,
-          mergedOptions.allowedAttributes
+          mergedOptions.allowedAttributes,
         );
         output += `<${tagName}${attrsStr}>`;
       }
@@ -292,43 +379,30 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
           isClosingTag = true;
           state = STATE.TAG_NAME;
         } else if (char === "!") {
-          // Simple handling for comments and doctypes - skip everything until the next '>'
-          const gtIndex = html.indexOf(">", position);
-          if (gtIndex !== -1) {
-            position = gtIndex; // Will be incremented at end of loop
+          if (html.startsWith("!--", position)) {
+            const commentEnd = html.indexOf("-->", position + 3);
+            position = commentEnd === -1 ? html.length - 1 : commentEnd + 2;
           } else {
-            position = html.length - 1;
+            position = findTagEnd(html, position);
           }
           state = STATE.TEXT;
         } else if (/[a-zA-Z]/.test(char)) {
-          tagNameBuffer = char.toLowerCase();
+          const potentialTagName = readTagName(html, position);
 
-          // Special handling for script tags - they should be skipped entirely
-          if (
-            !isClosingTag &&
-            tagNameBuffer === "s" &&
-            html.slice(position, position + 6).toLowerCase() === "script"
-          ) {
-            // Find position of tag closing
-            let endPos = position;
-            while (endPos < html.length && html[endPos] !== ">") {
-              endPos++;
-            }
-
-            if (endPos < html.length) {
-              // Skip to the closing script tag
-              const scriptEnd = html.indexOf("</script>", endPos);
-              if (scriptEnd !== -1) {
-                position = scriptEnd + 8; // Move past </script>
-              } else {
-                position = html.length;
-              }
-              // Resume parsing without emitting any script content
-              state = STATE.TEXT;
-              continue;
-            }
+          if (!isClosingTag && shouldSkipElementContent(potentialTagName)) {
+            const openTagEnd = findTagEnd(html, position);
+            position =
+              findElementContentEnd(
+                html,
+                potentialTagName,
+                openTagEnd,
+                position,
+              ) + 1;
+            state = STATE.TEXT;
+            continue;
           }
 
+          tagNameBuffer = char.toLowerCase();
           state = STATE.TAG_NAME;
           currentAttrs = [];
           isSelfClosing = false;
@@ -370,13 +444,13 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
         } else if (/\s/.test(char)) {
           if (attrNameBuffer) {
             // Boolean attribute with no value
-            currentAttrs.push([attrNameBuffer, ""]);
+            currentAttrs.push([attrNameBuffer, "", false]);
             attrNameBuffer = "";
           }
         } else if (char === ">") {
           if (attrNameBuffer) {
             // Add the attribute without a value
-            currentAttrs.push([attrNameBuffer, ""]);
+            currentAttrs.push([attrNameBuffer, "", false]);
             attrNameBuffer = "";
           }
 
@@ -394,7 +468,7 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
         } else if (char === "/" && !isClosingTag) {
           if (attrNameBuffer) {
             // Add the final attribute
-            currentAttrs.push([attrNameBuffer, ""]);
+            currentAttrs.push([attrNameBuffer, "", false]);
             attrNameBuffer = "";
           }
 
@@ -412,7 +486,7 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
           // Just skip whitespace
         } else if (char === ">") {
           // Attribute with empty value
-          currentAttrs.push([attrNameBuffer, ""]);
+          currentAttrs.push([attrNameBuffer, "", true]);
           attrNameBuffer = "";
 
           if (isClosingTag) {
@@ -436,14 +510,14 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
       case STATE.ATTR_VALUE:
         if (inQuote && char === inQuote) {
           // End of quoted attribute
-          currentAttrs.push([attrNameBuffer, attrValueBuffer]);
+          currentAttrs.push([attrNameBuffer, attrValueBuffer, true]);
           attrNameBuffer = "";
           attrValueBuffer = "";
           inQuote = "";
           state = STATE.ATTR_NAME;
         } else if (!inQuote && /[\s>]/.test(char)) {
           // End of unquoted attribute
-          currentAttrs.push([attrNameBuffer, attrValueBuffer]);
+          currentAttrs.push([attrNameBuffer, attrValueBuffer, true]);
           attrNameBuffer = "";
           attrValueBuffer = "";
 

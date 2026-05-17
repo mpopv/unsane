@@ -16,8 +16,22 @@ const runtimeImportPaths = [
   "dist/utils/securityUtils.js",
 ];
 
+const runtimeSizeBudgets = {
+  sourceSize: 32 * 1024,
+  sourceGzipSize: 8 * 1024,
+  minifiedSize: 9 * 1024,
+  minifiedGzipSize: 4 * 1024,
+};
+
 interface FileDetail {
   file: string;
+  sourceSize: number;
+  sourceGzipSize: number;
+  minifiedSize: number;
+  minifiedGzipSize: number;
+}
+
+interface SizeSummary {
   sourceSize: number;
   sourceGzipSize: number;
   minifiedSize: number;
@@ -44,16 +58,45 @@ function ensureBuildArtifacts(paths: string[]): void {
   execFileSync("npm", ["run", "build"], { stdio: "inherit" });
 }
 
+function enforceSizeBudgets(summary: SizeSummary): void {
+  const failures = Object.entries(runtimeSizeBudgets).filter(
+    ([metric, budget]) => summary[metric as keyof SizeSummary] > budget,
+  );
+
+  if (failures.length === 0) {
+    console.log("Size budgets: passed");
+    return;
+  }
+
+  for (const [metric, budget] of failures) {
+    const actual = summary[metric as keyof SizeSummary];
+    console.error(
+      `Size budget exceeded for ${metric}: ${formatBytes(
+        actual,
+      )} > ${formatBytes(budget)}`,
+    );
+  }
+
+  process.exit(1);
+}
+
 async function minifyCode(
-  filePath: string
+  filePath: string,
 ): Promise<{ minified: string; size: number; gzipSize: number }> {
   const tempOutputPath = `${filePath}.min.js`;
 
   try {
     execFileSync(
       "npx",
-      ["terser", filePath, "--compress", "--mangle", "--output", tempOutputPath],
-      { stdio: "pipe" }
+      [
+        "terser",
+        filePath,
+        "--compress",
+        "--mangle",
+        "--output",
+        tempOutputPath,
+      ],
+      { stdio: "pipe" },
     );
 
     const minified = await readFile(tempOutputPath, "utf8");
@@ -78,7 +121,7 @@ async function analyzeRuntimeImports(): Promise<void> {
     console.log(
       `\nAnalyzing runtime import sizes for: ${
         packageJson.name || "unsane"
-      } v${packageJson.version || "development"}\n`
+      } v${packageJson.version || "development"}\n`,
     );
 
     const fileDetails: FileDetail[] = [];
@@ -89,8 +132,11 @@ async function analyzeRuntimeImports(): Promise<void> {
       const source = await readFile(file, "utf8");
       const sourceSize = Buffer.byteLength(source);
       const sourceGzipSize = (await gzip(Buffer.from(source))).length;
-      const { minified, size: minifiedSize, gzipSize: minifiedGzipSize } =
-        await minifyCode(file);
+      const {
+        minified,
+        size: minifiedSize,
+        gzipSize: minifiedGzipSize,
+      } = await minifyCode(file);
 
       sourceParts.push(source);
       minifiedParts.push(minified);
@@ -107,27 +153,27 @@ async function analyzeRuntimeImports(): Promise<void> {
 
     console.log("Runtime Import Files:");
     console.log(
-      "-------------------------------------------------------------------------------"
+      "-------------------------------------------------------------------------------",
     );
     console.log(
-      "  File                             | Source   | Gzip     | Minified | Min+Gzip"
+      "  File                             | Source   | Gzip     | Minified | Min+Gzip",
     );
     console.log(
-      "-------------------------------------------------------------------------------"
+      "-------------------------------------------------------------------------------",
     );
 
     for (const detail of fileDetails) {
       console.log(
         `  ${detail.file.padEnd(32)} | ${formatBytes(detail.sourceSize).padEnd(
-          8
+          8,
         )} | ${formatBytes(detail.sourceGzipSize).padEnd(8)} | ${formatBytes(
-          detail.minifiedSize
-        ).padEnd(8)} | ${formatBytes(detail.minifiedGzipSize)}`
+          detail.minifiedSize,
+        ).padEnd(8)} | ${formatBytes(detail.minifiedGzipSize)}`,
       );
     }
 
     console.log(
-      "-------------------------------------------------------------------------------\n"
+      "-------------------------------------------------------------------------------\n",
     );
 
     const combinedSource = sourceParts.join("\n");
@@ -139,21 +185,30 @@ async function analyzeRuntimeImports(): Promise<void> {
 
     console.log("Size Summary:");
     console.log(`  - Runtime import closure: ${formatBytes(sourceSize)}`);
-    console.log(`  - Runtime import closure gzipped: ${formatBytes(sourceGzipSize)}`);
+    console.log(
+      `  - Runtime import closure gzipped: ${formatBytes(sourceGzipSize)}`,
+    );
     console.log(`  - Minified runtime closure: ${formatBytes(minifiedSize)}`);
     console.log(
-      `  - Minified + gzipped runtime closure: ${formatBytes(minifiedGzipSize)}`
+      `  - Minified + gzipped runtime closure: ${formatBytes(minifiedGzipSize)}`,
     );
     console.log(
       `  - Compression ratio: ${(
         100 -
         (minifiedGzipSize / sourceSize) * 100
-      ).toFixed(1)}%\n`
+      ).toFixed(1)}%\n`,
     );
+
+    enforceSizeBudgets({
+      sourceSize,
+      sourceGzipSize,
+      minifiedSize,
+      minifiedGzipSize,
+    });
   } catch (error) {
     console.error(
       "Error analyzing runtime imports:",
-      error instanceof Error ? error.message : String(error)
+      error instanceof Error ? error.message : String(error),
     );
     process.exit(1);
   }

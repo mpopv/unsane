@@ -3,15 +3,86 @@ import {
   containsDangerousContent,
   ALLOWED_PROTOCOLS,
   DANGEROUS_CONTENT,
+  isSafeUrlAttributeValue,
+  isUrlAttribute,
 } from "./securityUtils.js";
 
 describe("Security Utils", () => {
+  describe("isUrlAttribute", () => {
+    it("should identify URL-bearing attributes", () => {
+      expect(isUrlAttribute("href")).toBe(true);
+      expect(isUrlAttribute("SRC")).toBe(true);
+      expect(isUrlAttribute("xlink:href")).toBe(true);
+      expect(isUrlAttribute("data-test")).toBe(false);
+    });
+  });
+
+  describe("isSafeUrlAttributeValue", () => {
+    it("should allow empty values, relative URLs, fragments, and allowed protocols", () => {
+      expect(isSafeUrlAttributeValue("")).toBe(true);
+      expect(isSafeUrlAttributeValue("/docs?q=alert(1)")).toBe(true);
+      expect(isSafeUrlAttributeValue("./docs")).toBe(true);
+      expect(isSafeUrlAttributeValue("../docs")).toBe(true);
+      expect(isSafeUrlAttributeValue("#section")).toBe(true);
+
+      for (const protocol of ALLOWED_PROTOCOLS) {
+        expect(isSafeUrlAttributeValue(`${protocol}//example.com`)).toBe(true);
+      }
+    });
+
+    it("should reject protocol-relative URLs and disallowed protocols", () => {
+      expect(isSafeUrlAttributeValue("//example.com/path")).toBe(false);
+      expect(isSafeUrlAttributeValue("javascript:void(0)")).toBe(false);
+      expect(isSafeUrlAttributeValue("data:text/plain,hello")).toBe(false);
+      expect(isSafeUrlAttributeValue("vbscript:msgbox(1)")).toBe(false);
+      expect(isSafeUrlAttributeValue("unknown:thing")).toBe(false);
+    });
+
+    it("should decode entity-obfuscated protocols before checking", () => {
+      expect(isSafeUrlAttributeValue("j&#97;vascript:void(0)")).toBe(false);
+      expect(isSafeUrlAttributeValue("javascript&#58;void(0)")).toBe(false);
+      expect(isSafeUrlAttributeValue("jav&#x09;ascript:void(0)")).toBe(false);
+      expect(isSafeUrlAttributeValue("&#106;avascript:void(0)")).toBe(false);
+      expect(isSafeUrlAttributeValue("&#106avascript:void(0)")).toBe(false);
+      expect(
+        isSafeUrlAttributeValue(
+          "&#x6A&#x61&#x76&#x61&#x73&#x63&#x72&#x69&#x70&#x74&#x3A;void(0)",
+        ),
+      ).toBe(false);
+      expect(isSafeUrlAttributeValue("javascript&colon;void(0)")).toBe(false);
+    });
+
+    it("should reject control and unicode obfuscation characters", () => {
+      expect(isSafeUrlAttributeValue("java\tscript:void(0)")).toBe(false);
+      expect(isSafeUrlAttributeValue("java script:void(0)")).toBe(false);
+      expect(isSafeUrlAttributeValue("javascript\u200C:void(0)")).toBe(false);
+      expect(isSafeUrlAttributeValue("https://example.com/\u0001x")).toBe(
+        false,
+      );
+      expect(isSafeUrlAttributeValue("https://example.com/\u200Dx")).toBe(
+        false,
+      );
+    });
+
+    it("should leave unknown or invalid entities inert", () => {
+      expect(isSafeUrlAttributeValue("https://example.com/&madeup;/x")).toBe(
+        true,
+      );
+      expect(
+        isSafeUrlAttributeValue("https://example.com/&#999999999;/x"),
+      ).toBe(true);
+      expect(isSafeUrlAttributeValue("https://example.com/&#999999999/x")).toBe(
+        true,
+      );
+    });
+  });
+
   describe("containsDangerousContent", () => {
     it("should handle empty or invalid input", () => {
       expect(containsDangerousContent("")).toBe(false);
       expect(containsDangerousContent(null as unknown as string)).toBe(false);
       expect(containsDangerousContent(undefined as unknown as string)).toBe(
-        false
+        false,
       );
     });
 
@@ -19,7 +90,7 @@ describe("Security Utils", () => {
       // Test all allowed protocols
       for (const protocol of ALLOWED_PROTOCOLS) {
         expect(containsDangerousContent(`${protocol}//example.com`)).toBe(
-          false
+          false,
         );
       }
 
@@ -47,7 +118,7 @@ describe("Security Utils", () => {
       expect(containsDangerousContent("javascript:void(0)")).toBe(true);
       expect(containsDangerousContent("eval('alert(1)')")).toBe(true);
       expect(containsDangerousContent("new Function('return true')")).toBe(
-        true
+        true,
       );
       expect(containsDangerousContent("setTimeout(function(){})")).toBe(true);
       expect(containsDangerousContent("setInterval(callback)")).toBe(true);
@@ -80,7 +151,7 @@ describe("Security Utils", () => {
       expect(containsDangerousContent("mailto:user@example.com")).toBe(false);
       expect(containsDangerousContent('<div class="test">')).toBe(false);
       expect(containsDangerousContent("Regular text with numbers 123")).toBe(
-        false
+        false,
       );
     });
   });

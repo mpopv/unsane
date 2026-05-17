@@ -2,6 +2,8 @@
  * Security utilities for HTML sanitization
  */
 
+import { decode } from "./htmlEntities.js";
+
 // Only these protocols are allowed (allowlist approach)
 export const ALLOWED_PROTOCOLS = new Set([
   "http:",
@@ -10,6 +12,16 @@ export const ALLOWED_PROTOCOLS = new Set([
   "tel:",
   "ftp:",
   "sms:",
+]);
+
+export const URL_ATTRIBUTES = new Set([
+  "href",
+  "src",
+  "cite",
+  "poster",
+  "action",
+  "formaction",
+  "xlink:href",
 ]);
 
 // List of dangerous content patterns
@@ -34,6 +46,101 @@ export const DANGEROUS_CONTENT = [
   "onload=",
   "onmouseover=",
 ];
+
+const HTML_ENTITY_PATTERN = /&(#x[0-9a-f]+|#[0-9]+|[a-z][a-z0-9]+);?/gi;
+
+const URL_NAMED_ENTITIES: Record<string, string> = {
+  amp: "&",
+  apos: "'",
+  colon: ":",
+  gt: ">",
+  lpar: "(",
+  lt: "<",
+  newline: "\n",
+  nbsp: " ",
+  quot: '"',
+  rpar: ")",
+  tab: "\t",
+};
+
+function codePointToUrlChar(codePoint: number, fallback: string): string {
+  if (codePoint < 0 || codePoint > 0x10ffff) return fallback;
+  return String.fromCodePoint(codePoint);
+}
+
+function isControlOrObfuscationChar(char: string): boolean {
+  const code = char.charCodeAt(0);
+  return (
+    code <= 0x1f ||
+    (code >= 0x7f && code <= 0x9f) ||
+    (code >= 0x200c && code <= 0x200f) ||
+    code === 0xfeff
+  );
+}
+
+function hasControlOrObfuscationChars(value: string): boolean {
+  return value.split("").some((char) => isControlOrObfuscationChar(char));
+}
+
+function stripProtocolObfuscationChars(value: string): string {
+  return value
+    .split("")
+    .filter((char) => !/\s/.test(char) && !isControlOrObfuscationChar(char))
+    .join("");
+}
+
+function decodeUrlEntitiesOnce(value: string): string {
+  return decode(value).replace(HTML_ENTITY_PATTERN, (match, entity) => {
+    const normalized = entity.toLowerCase();
+
+    if (normalized.startsWith("#x")) {
+      return codePointToUrlChar(parseInt(normalized.slice(2), 16), match);
+    }
+
+    if (normalized.startsWith("#")) {
+      return codePointToUrlChar(parseInt(normalized.slice(1), 10), match);
+    }
+
+    return URL_NAMED_ENTITIES[normalized] || match;
+  });
+}
+
+function decodeUrlEntities(value: string): string {
+  let decoded = value;
+
+  for (let pass = 0; pass < 4; pass++) {
+    const next = decodeUrlEntitiesOnce(decoded);
+    if (next === decoded) break;
+    decoded = next;
+  }
+
+  return decoded;
+}
+
+export function isUrlAttribute(name: string): boolean {
+  return URL_ATTRIBUTES.has(name.toLowerCase());
+}
+
+export function isSafeUrlAttributeValue(value: string): boolean {
+  if (!value) return true;
+
+  const decoded = decodeUrlEntities(value);
+
+  if (hasControlOrObfuscationChars(decoded)) {
+    return false;
+  }
+
+  const normalized = stripProtocolObfuscationChars(
+    decoded.trim(),
+  ).toLowerCase();
+
+  if (normalized.startsWith("//")) {
+    return false;
+  }
+
+  const protocolMatch = normalized.match(/^([a-z][a-z0-9.+-]*):/);
+  return !protocolMatch || ALLOWED_PROTOCOLS.has(`${protocolMatch[1]}:`);
+}
 
 /**
  * Check if a value contains dangerous content like script, JavaScript,
