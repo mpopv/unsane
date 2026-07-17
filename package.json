@@ -46,7 +46,7 @@
   },
   "homepage": "https://github.com/mpopv/unsane#readme",
   "engines": {
-    "node": ">=18.18.0"
+    "node": ">=22.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.19.19",
