@@ -63,15 +63,19 @@ const UNSAFE_ATTRIBUTE_CHARS_PATTERN = /[\0-\x1f\x7f-\x9f\u200c-\u200f\ufeff]/;
 const DANGEROUS_ATTRIBUTE_PATTERN =
   /^(on|style|(form)?action|xlink:href|srcdoc|(image)?srcset|ping|is$)/;
 
+function invalid(name: string): never {
+  throw new TypeError(`Invalid ${name}.`);
+}
+
 function normalizeStringList(values: unknown, optionName: string): Set<string> {
   if (!Array.isArray(values)) {
-    throw new TypeError(`Invalid ${optionName}.`);
+    invalid(optionName);
   }
 
   const normalized = new Set<string>();
   for (const value of values) {
     if (typeof value !== "string") {
-      throw new TypeError(`Invalid ${optionName}.`);
+      invalid(optionName);
     }
     normalized.add(value.toLowerCase());
   }
@@ -86,7 +90,7 @@ function normalizeAllowedAttributes(
     attributes === null ||
     Array.isArray(attributes)
   ) {
-    throw new TypeError("Invalid allowedAttributes.");
+    invalid("allowedAttributes");
   }
 
   const normalized = new Map<string, Set<string>>();
@@ -111,7 +115,7 @@ function normalizeOptions(options?: SanitizerOptions): NormalizedOptions {
     options !== undefined &&
     (typeof options !== "object" || options === null || Array.isArray(options))
   ) {
-    throw new TypeError("Invalid options.");
+    invalid("options");
   }
 
   return {
@@ -139,6 +143,11 @@ function readTagName(html: string, position: number): string {
     end++;
   }
   return html.slice(position, end).toLowerCase();
+}
+
+function sanitizeText(text: string): string {
+  if (!text || (!text.trim() && !text.includes(" "))) return "";
+  return normalizeText(text);
 }
 
 function findTagEnd(html: string, position: number): number {
@@ -291,11 +300,13 @@ function processAttributes(
  */
 export function sanitize(html: string, options?: SanitizerOptions): string {
   if (typeof html !== "string") {
-    throw new TypeError("Invalid html.");
+    invalid("html");
   }
 
   const mergedOptions = normalizeOptions(options);
   assertInputWithinLimit(html, mergedOptions.maxInputLength);
+
+  if (!html.includes("<")) return sanitizeText(html);
 
   // Stack for tracking open tags
   const stack: string[] = [];
@@ -307,32 +318,21 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
 
   // Parse state management
   let position = 0;
-  let textBuffer = "";
+  let textStart = 0;
 
   let state = ParserState.Text;
   let tagNameBuffer = "";
   let attrNameBuffer = "";
-  let attrValueBuffer = "";
+  let attrValueStart = -1;
   let isClosingTag = false;
   let inQuote = "";
   let currentAttrs: Attribute[] = [];
   let isSelfClosing = false;
 
   // Helper function to emit text
-  function emitText() {
-    if (textBuffer) {
-      // No transformation, use text directly
-      const text = textBuffer;
-
-      // Only process non-empty text
-      if (text.trim() || text.includes(" ")) {
-        // Decode any entities, then re-encode as inert text
-        // This handles both regular text and text with entities in one path
-        output.push(normalizeText(text));
-      }
-
-      textBuffer = "";
-    }
+  function emitText(end: number): void {
+    const text = sanitizeText(html.slice(textStart, end));
+    if (text) output.push(text);
   }
 
   function openTagIndex(tagName: string): number {
@@ -399,10 +399,7 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
 
   // Function to handle an end tag
   function handleEndTag(tagName: string) {
-    if (
-      mergedOptions.allowedTags.has(tagName) &&
-      !VOID_ELEMENTS.has(tagName)
-    ) {
+    if (mergedOptions.allowedTags.has(tagName) && !VOID_ELEMENTS.has(tagName)) {
       // Find the matching opening tag in the stack
       const index = openTagIndex(tagName);
 
@@ -412,6 +409,29 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
     }
   }
 
+  function takeAttributeValue(end: number): void {
+    currentAttrs.push([attrNameBuffer, html.slice(attrValueStart, end), true]);
+    attrNameBuffer = "";
+    attrValueStart = -1;
+  }
+
+  function finishTag(selfClosing = isSelfClosing): void {
+    if (isClosingTag) {
+      handleEndTag(tagNameBuffer);
+    } else {
+      handleStartTag(tagNameBuffer, currentAttrs, selfClosing);
+    }
+
+    tagNameBuffer = "";
+    attrNameBuffer = "";
+    attrValueStart = -1;
+    currentAttrs = [];
+    isClosingTag = false;
+    isSelfClosing = false;
+    state = ParserState.Text;
+    textStart = position + 1;
+  }
+
   // Main parsing loop
   while (position < html.length) {
     const char = html[position];
@@ -419,25 +439,23 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
     switch (state) {
       case ParserState.Text:
         if (char === "<") {
-          emitText();
+          emitText(position);
 
           // Special handling for double <<, which could be malformed HTML used for XSS
           if (html[position + 1] === "<") {
             // Skip the second < and emit it as text
-            textBuffer = "<";
-            emitText();
+            output.push("&lt;");
             position++; // Skip the second <
           }
 
           state = ParserState.TagStart;
-        } else {
-          textBuffer += char;
         }
         break;
 
       case ParserState.TagStart:
         if (char === "/") {
           isClosingTag = true;
+          tagNameBuffer = "";
           state = ParserState.TagName;
         } else if (char === "!") {
           if (html.startsWith("!--", position)) {
@@ -447,6 +465,7 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
             position = findTagEnd(html, position);
           }
           state = ParserState.Text;
+          textStart = position + 1;
         } else if (/[a-zA-Z]/.test(char)) {
           const potentialTagName = readTagName(html, position);
 
@@ -464,6 +483,7 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
                 position,
               ) + 1;
             state = ParserState.Text;
+            textStart = position;
             continue;
           }
 
@@ -473,7 +493,7 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
           isSelfClosing = false;
         } else {
           // Not a valid tag, revert to text
-          textBuffer += "<" + char;
+          textStart = position - 1;
           state = ParserState.Text;
         }
         break;
@@ -484,17 +504,7 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
         } else if (/\s/.test(char)) {
           state = ParserState.AttrName;
         } else if (char === ">") {
-          if (isClosingTag) {
-            handleEndTag(tagNameBuffer);
-          } else {
-            handleStartTag(tagNameBuffer, currentAttrs, isSelfClosing);
-          }
-
-          tagNameBuffer = "";
-          currentAttrs = [];
-          isClosingTag = false;
-          isSelfClosing = false;
-          state = ParserState.Text;
+          finishTag();
         } else if (char === "/" && !isClosingTag) {
           isSelfClosing = true;
           state = ParserState.TagEnd;
@@ -508,35 +518,20 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
           state = ParserState.AttrValueStart;
         } else if (/\s/.test(char)) {
           if (attrNameBuffer) {
-            // Boolean attribute with no value
             currentAttrs.push([attrNameBuffer, "", false]);
             attrNameBuffer = "";
           }
         } else if (char === ">") {
           if (attrNameBuffer) {
-            // Add the attribute without a value
             currentAttrs.push([attrNameBuffer, "", false]);
             attrNameBuffer = "";
           }
-
-          if (isClosingTag) {
-            handleEndTag(tagNameBuffer);
-          } else {
-            handleStartTag(tagNameBuffer, currentAttrs, isSelfClosing);
-          }
-
-          tagNameBuffer = "";
-          currentAttrs = [];
-          isClosingTag = false;
-          isSelfClosing = false;
-          state = ParserState.Text;
+          finishTag();
         } else if (char === "/" && !isClosingTag) {
           if (attrNameBuffer) {
-            // Add the final attribute
             currentAttrs.push([attrNameBuffer, "", false]);
             attrNameBuffer = "";
           }
-
           isSelfClosing = true;
           state = ParserState.TagEnd;
         }
@@ -545,7 +540,7 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
       case ParserState.AttrValueStart:
         if (char === '"' || char === "'") {
           inQuote = char;
-          attrValueBuffer = "";
+          attrValueStart = position + 1;
           state = ParserState.AttrValue;
         } else if (/\s/.test(char)) {
           // Just skip whitespace
@@ -554,20 +549,10 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
           currentAttrs.push([attrNameBuffer, "", true]);
           attrNameBuffer = "";
 
-          if (isClosingTag) {
-            handleEndTag(tagNameBuffer);
-          } else {
-            handleStartTag(tagNameBuffer, currentAttrs, isSelfClosing);
-          }
-
-          tagNameBuffer = "";
-          currentAttrs = [];
-          isClosingTag = false;
-          isSelfClosing = false;
-          state = ParserState.Text;
+          finishTag();
         } else {
           // Unquoted attribute value
-          attrValueBuffer = char;
+          attrValueStart = position;
           state = ParserState.AttrValue;
         }
         break;
@@ -575,52 +560,24 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
       case ParserState.AttrValue:
         if (inQuote && char === inQuote) {
           // End of quoted attribute
-          currentAttrs.push([attrNameBuffer, attrValueBuffer, true]);
-          attrNameBuffer = "";
-          attrValueBuffer = "";
+          takeAttributeValue(position);
           inQuote = "";
           state = ParserState.AttrName;
         } else if (!inQuote && /[\s>]/.test(char)) {
           // End of unquoted attribute
-          currentAttrs.push([attrNameBuffer, attrValueBuffer, true]);
-          attrNameBuffer = "";
-          attrValueBuffer = "";
+          takeAttributeValue(position);
 
           if (char === ">") {
-            if (isClosingTag) {
-              handleEndTag(tagNameBuffer);
-            } else {
-              handleStartTag(tagNameBuffer, currentAttrs, isSelfClosing);
-            }
-
-            tagNameBuffer = "";
-            currentAttrs = [];
-            isClosingTag = false;
-            isSelfClosing = false;
-            state = ParserState.Text;
+            finishTag();
           } else {
             state = ParserState.AttrName;
           }
-        } else {
-          attrValueBuffer += char;
         }
         break;
 
       case ParserState.TagEnd:
         if (char === ">") {
-          // TAG_END is only reached for self-closing tags; closing tags exit earlier.
-          /* c8 ignore next */
-          if (isClosingTag) {
-            // Invariant: closing tags are handled in TAG_NAME/ATTR_NAME states.
-          } else {
-            handleStartTag(tagNameBuffer, currentAttrs, true);
-          }
-
-          tagNameBuffer = "";
-          currentAttrs = [];
-          isClosingTag = false;
-          isSelfClosing = false;
-          state = ParserState.Text;
+          finishTag(true);
         }
         break;
     }
@@ -628,8 +585,8 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
     position++;
   }
 
-  // Handle any remaining text
-  emitText();
+  // Handle any remaining text; unterminated tags remain discarded.
+  if (state === ParserState.Text) emitText(html.length);
 
   // Close any remaining tags
   closeStackFrom(0);
