@@ -58,7 +58,6 @@ const UNSAFE_ATTRIBUTE_CHARS_PATTERN = /[\0-\x1f\x7f-\x9f\u200c-\u200f\ufeff]/;
 const DANGEROUS_ATTRIBUTE_PATTERN =
   /^(?:on|style$|formaction$|xlink:href$|action$)/;
 
-<<<<<<< HEAD
 function normalizeStringList(values: unknown, optionName: string): Set<string> {
   if (!Array.isArray(values)) {
     throw new TypeError(`Invalid ${optionName}.`);
@@ -85,26 +84,16 @@ function normalizeAllowedAttributes(
     throw new TypeError("Invalid allowedAttributes.");
   }
 
-=======
-function normalizeAllowedAttributes(
-  attributes: Record<string, string[]>,
-): Map<string, Set<string>> {
->>>>>>> origin/main
   const normalized = new Map<string, Set<string>>();
 
   for (const [tagName, attrs] of Object.entries(attributes)) {
     const normalizedTagName = tagName.toLowerCase();
     const normalizedAttrs = normalized.get(normalizedTagName) ?? new Set();
-<<<<<<< HEAD
     for (const attr of normalizeStringList(
       attrs,
       `allowedAttributes.${tagName}`,
     )) {
       normalizedAttrs.add(attr);
-=======
-    for (const attr of attrs) {
-      normalizedAttrs.add(attr.toLowerCase());
->>>>>>> origin/main
     }
     normalized.set(normalizedTagName, normalizedAttrs);
   }
@@ -112,7 +101,6 @@ function normalizeAllowedAttributes(
   return normalized;
 }
 
-<<<<<<< HEAD
 function normalizeOptions(options?: SanitizerOptions): NormalizedOptions {
   if (
     options !== undefined &&
@@ -120,19 +108,6 @@ function normalizeOptions(options?: SanitizerOptions): NormalizedOptions {
   ) {
     throw new TypeError("Invalid options.");
   }
-=======
-function normalizeOptions(
-  options: Required<SanitizerOptions>,
-): NormalizedOptions {
-  return {
-    allowedTags: new Set(
-      options.allowedTags.map((value) => value.toLowerCase()),
-    ),
-    allowedAttributes: normalizeAllowedAttributes(options.allowedAttributes),
-    maxInputLength: options.maxInputLength ?? DEFAULT_OPTIONS.maxInputLength,
-  };
-}
->>>>>>> origin/main
 
   return {
     allowedTags: normalizeStringList(
@@ -264,11 +239,7 @@ function processAttributes(
     // Skip the attribute if it's not in the allowlist or it's a dangerous attribute pattern
     if (
       (!tagAllowedAttrs?.has(lowerName) && !globalAttrs?.has(lowerName)) ||
-<<<<<<< HEAD
       DANGEROUS_ATTRIBUTE_PATTERN.test(lowerName)
-=======
-      isDangerousAttribute(lowerName)
->>>>>>> origin/main
     ) {
       continue;
     }
@@ -369,13 +340,8 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
       if (text.trim() || text.includes(" ")) {
         // Decode any entities, then re-encode as inert text
         // This handles both regular text and text with entities in one path
-<<<<<<< HEAD
         const decoded = decode(text).replace(CONTROL_CHARS_PATTERN, "");
-        output += encode(decoded, { escapeOnly: true });
-=======
-        const decoded = decode(cleanText);
         output.push(encode(decoded, { escapeOnly: true }));
->>>>>>> origin/main
       }
 
       textBuffer = "";
@@ -446,14 +412,10 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
 
   // Function to handle an end tag
   function handleEndTag(tagName: string) {
-<<<<<<< HEAD
-    if (mergedOptions.allowedTags.has(tagName) && !VOID_ELEMENTS.has(tagName)) {
-=======
     if (
       mergedOptions.allowedTags.has(tagName) &&
       !VOID_ELEMENTS.has(tagName)
     ) {
->>>>>>> origin/main
       // Find the matching opening tag in the stack
       const index = openTagIndex(tagName);
 
