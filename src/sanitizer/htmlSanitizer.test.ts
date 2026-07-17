@@ -65,6 +65,67 @@ describe("htmlSanitizer", () => {
     expect(output).toBe('<div class="ok" data-id="1">Text</div>');
   });
 
+  it("should safely handle property-like tag names in allowlists", () => {
+    expect(
+      sanitize("<constructor>safe</constructor>", {
+        allowedTags: ["constructor"],
+        allowedAttributes: {},
+      }),
+    ).toBe("<constructor>safe</constructor>");
+
+    const parsedOptions = JSON.parse(
+      '{"allowedTags":["div"],"allowedAttributes":{"__proto__":["class"]}}',
+    );
+    expect(sanitize('<div class="safe">text</div>', parsedOptions)).toBe(
+      "<div>text</div>",
+    );
+  });
+
+  it("should reject malformed runtime inputs and configuration", () => {
+    expect(() => sanitize(42 as unknown as string)).toThrow(
+      new TypeError("Invalid html."),
+    );
+
+    for (const invalidOptions of [null, "options", []]) {
+      expect(() =>
+        sanitize("text", invalidOptions as unknown as undefined),
+      ).toThrow(new TypeError("Invalid options."));
+    }
+
+    for (const allowedTags of ["div", ["div", 42]]) {
+      expect(() =>
+        sanitize("text", {
+          allowedTags: allowedTags as unknown as string[],
+        }),
+      ).toThrow(new TypeError("Invalid allowedTags."));
+    }
+
+    for (const allowedAttributes of [null, [], "attributes"]) {
+      expect(() =>
+        sanitize("text", {
+          allowedAttributes: allowedAttributes as unknown as Record<
+            string,
+            string[]
+          >,
+        }),
+      ).toThrow(new TypeError("Invalid allowedAttributes."));
+    }
+
+    for (const allowedAttributes of [
+      { div: "class" },
+      { div: ["class", 42] },
+    ]) {
+      expect(() =>
+        sanitize("text", {
+          allowedAttributes: allowedAttributes as unknown as Record<
+            string,
+            string[]
+          >,
+        }),
+      ).toThrow(TypeError);
+    }
+  });
+
   it("should preserve text content inside elements", () => {
     const input = "<div>Hello world</div>";
     const output = sanitize(input);
@@ -149,6 +210,13 @@ describe("htmlSanitizer", () => {
     const input = "<div>Test\u200CZero\u200DWidth\u200EChars</div>";
     const output = sanitize(input);
     expect(output).toBe("<div>Test\u200CZero\u200DWidth\u200EChars</div>");
+  });
+
+  it("should not emit control characters introduced by entities", () => {
+    expect(sanitize("<p>before&#12;after</p>")).toBe("<p>beforeafter</p>");
+    expect(sanitize("<p>before&#12abc;after</p>")).toBe(
+      "<p>before&amp;#12abc;after</p>",
+    );
   });
 
   it("should preserve whitespace-only text nodes", () => {

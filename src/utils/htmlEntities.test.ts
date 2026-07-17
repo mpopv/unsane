@@ -31,6 +31,7 @@ describe("htmlEntities", () => {
       expect(decode("&unknown;")).toBe("&unknown;");
       expect(decode("&#xGHI;")).toBe("&#xGHI;");
       expect(decode("&#abc;")).toBe("&#abc;");
+      expect(decode("&#12abc;")).toBe("&#12abc;");
       expect(decode("&#;")).toBe("&#;");
     });
 

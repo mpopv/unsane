@@ -5,49 +5,29 @@
 import { decode } from "./htmlEntities.js";
 
 // Only these protocols are allowed (allowlist approach)
-export const ALLOWED_PROTOCOLS = new Set([
-  "http:",
-  "https:",
-  "mailto:",
-  "tel:",
-  "ftp:",
-  "sms:",
-]);
+export const ALLOWED_PROTOCOLS = new Set(
+  "http: https: mailto: tel: ftp: sms:".split(" "),
+);
 
-export const URL_ATTRIBUTES = new Set([
-  "href",
-  "src",
-  "cite",
-  "poster",
-  "action",
-  "formaction",
-  "xlink:href",
-]);
+export const URL_ATTRIBUTES = new Set(
+  "href src cite poster action formaction xlink:href".split(" "),
+);
 
 // List of dangerous content patterns
-export const DANGEROUS_CONTENT = [
-  // Code execution
-  "javascript",
-  "eval(",
-  "newfunction",
-  "settimeout(",
-  "setinterval(",
-
-  // XSS common vectors
-  "alert(",
-  "confirm(",
-  "prompt(",
-  "document.",
-  "window.",
-
-  // Event handlers
-  "onerror=",
-  "onclick=",
-  "onload=",
-  "onmouseover=",
-];
+export const DANGEROUS_CONTENT =
+  "javascript eval( newfunction settimeout( setinterval( alert( confirm( prompt( document. window. onerror= onclick= onload= onmouseover=".split(
+    " ",
+  );
 
 const HTML_ENTITY_PATTERN = /&(#x[0-9a-f]+|#[0-9]+|[a-z][a-z0-9]+);?/gi;
+
+/* eslint-disable no-control-regex */
+const URL_OBFUSCATION_PATTERN = /[\0-\x1f\x7f-\x9f\u200c-\u200f\ufeff]/;
+const STRIP_PROTOCOL_OBFUSCATION_PATTERN =
+  /[\s\0-\x1f\x7f-\x9f\u200c-\u200f\ufeff]/g;
+const DANGEROUS_OBFUSCATION_PATTERN =
+  /(?:\\u0000|[\0-\x1f\x7f-\x9f\u200c-\u200d\ufeff])/;
+/* eslint-enable no-control-regex */
 
 const URL_NAMED_ENTITIES: Record<string, string> = {
   amp: "&",
@@ -66,27 +46,6 @@ const URL_NAMED_ENTITIES: Record<string, string> = {
 function codePointToUrlChar(codePoint: number, fallback: string): string {
   if (codePoint < 0 || codePoint > 0x10ffff) return fallback;
   return String.fromCodePoint(codePoint);
-}
-
-function isControlOrObfuscationChar(char: string): boolean {
-  const code = char.charCodeAt(0);
-  return (
-    code <= 0x1f ||
-    (code >= 0x7f && code <= 0x9f) ||
-    (code >= 0x200c && code <= 0x200f) ||
-    code === 0xfeff
-  );
-}
-
-function hasControlOrObfuscationChars(value: string): boolean {
-  return value.split("").some((char) => isControlOrObfuscationChar(char));
-}
-
-function stripProtocolObfuscationChars(value: string): string {
-  return value
-    .split("")
-    .filter((char) => !/\s/.test(char) && !isControlOrObfuscationChar(char))
-    .join("");
 }
 
 function decodeUrlEntitiesOnce(value: string): string {
@@ -126,13 +85,13 @@ export function isSafeUrlAttributeValue(value: string): boolean {
 
   const decoded = decodeUrlEntities(value);
 
-  if (hasControlOrObfuscationChars(decoded)) {
+  if (URL_OBFUSCATION_PATTERN.test(decoded)) {
     return false;
   }
 
-  const normalized = stripProtocolObfuscationChars(
-    decoded.trim(),
-  ).toLowerCase();
+  const normalized = decoded
+    .replace(STRIP_PROTOCOL_OBFUSCATION_PATTERN, "")
+    .toLowerCase();
 
   if (normalized.startsWith("//")) {
     return false;
@@ -153,19 +112,7 @@ export function containsDangerousContent(value: string): boolean {
   if (!value) return false;
 
   // Check for control characters and Unicode obfuscation first (before normalization)
-  if (
-    value.includes("\\u0000") ||
-    value.includes("\u0000") || // Actual null character
-    // Control characters
-    value.split("").some((char) => {
-      const code = char.charCodeAt(0);
-      return code <= 0x1f || (code >= 0x7f && code <= 0x9f);
-    }) ||
-    // Check for zero-width characters used for obfuscation
-    value.includes(String.fromCodePoint(0x200c)) || // Zero-width non-joiner
-    value.includes(String.fromCodePoint(0x200d)) || // Zero-width joiner
-    value.includes(String.fromCodePoint(0xfeff)) // Zero-width no-break space
-  ) {
+  if (DANGEROUS_OBFUSCATION_PATTERN.test(value)) {
     return true;
   }
 

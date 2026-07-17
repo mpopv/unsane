@@ -40,6 +40,22 @@ function assertCli(cwd) {
   if (result.stdout !== "<div>ok</div>") {
     throw new Error(`Unexpected CLI output: ${JSON.stringify(result.stdout)}`);
   }
+
+  const oversizedResult = spawnSync(binPath, [], {
+    cwd,
+    input: "x".repeat(1_000_001),
+    encoding: "utf8",
+  });
+
+  if (oversizedResult.status === 0) {
+    throw new Error("CLI accepted input above maxInputLength.");
+  }
+
+  if (!oversizedResult.stderr.includes("Input exceeds maxInputLength")) {
+    throw new Error(
+      `Unexpected oversized-input error: ${JSON.stringify(oversizedResult.stderr)}`,
+    );
+  }
 }
 
 function runBin(cwd, binName, args) {
