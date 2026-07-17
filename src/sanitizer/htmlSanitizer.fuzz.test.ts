@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { JSDOM } from "jsdom";
 import { sanitize } from "./htmlSanitizer.js";
 
 const unsafeTagPatterns = [
@@ -78,8 +79,34 @@ function expectSafeTagTokens(html: string, input: string): void {
   }
 }
 
-function generatedPayloads(count: number): string[] {
-  const random = createPrng(0x5eed);
+function createBrowserBody() {
+  return new JSDOM("<body></body>").window.document.body;
+}
+
+function expectSafeBrowserTree(
+  body: ReturnType<typeof createBrowserBody>,
+  input: string,
+): void {
+  expect(
+    body.querySelector("script, style, iframe, object, svg, math"),
+    input,
+  ).toBeNull();
+
+  for (const element of body.querySelectorAll("*")) {
+    for (const attribute of element.attributes) {
+      expect(attribute.name, input).not.toMatch(/^on|^style$/i);
+
+      if (/^(?:href|src|action|formaction|xlink:href)$/i.test(attribute.name)) {
+        expect(attribute.value, input).not.toMatch(
+          /^\s*(?:javascript|data|vbscript|file|blob|mhtml|filesystem):/i,
+        );
+      }
+    }
+  }
+}
+
+function generatedPayloads(count: number, seed: number): string[] {
+  const random = createPrng(seed);
   const tagNames = [
     ...nonVoidTags,
     "script",
@@ -147,16 +174,27 @@ function generatedPayloads(count: number): string[] {
 }
 
 describe("htmlSanitizer generated corpus", () => {
-  it("never throws and preserves sanitizer output invariants", () => {
-    for (const input of generatedPayloads(300)) {
-      let output = "";
+  it("never throws and preserves output invariants across seeds and browser reparsing", () => {
+    const browserBody = createBrowserBody();
 
-      expect(() => {
-        output = sanitize(input);
-      }).not.toThrow();
+    for (const seed of [0x5eed, 0xc0ffee, 0xdeadbeef, 0xdecafbad]) {
+      for (const input of generatedPayloads(250, seed)) {
+        let output = "";
 
-      expectSafeTagTokens(output, input);
-      expect(balancedAllowedTags(output), input).toBe(true);
+        expect(() => {
+          output = sanitize(input);
+        }).not.toThrow();
+
+        expectSafeTagTokens(output, input);
+        expect(balancedAllowedTags(output), input).toBe(true);
+
+        const resanitized = sanitize(output);
+        expectSafeTagTokens(resanitized, input);
+        expect(balancedAllowedTags(resanitized), input).toBe(true);
+
+        browserBody.innerHTML = output;
+        expectSafeBrowserTree(browserBody, input);
+      }
     }
   });
 });

@@ -18,7 +18,7 @@ npm install unsane
 
 ## Requirements
 
-Unsane requires **Node.js 18.18.0 or later**.
+Unsane requires a supported release of **Node.js 22 or later**.
 
 ## Usage
 
@@ -148,7 +148,7 @@ bundle growth fails before release.
 
 ## Threat Model
 
-- **Supported contexts**: Designed for server-side rendering pipelines and JavaScript runtimes (Node.js ≥18.18.0, Cloudflare Workers, Deno) where DOM APIs are unavailable. Browser usage is possible, but the sanitizer never mutates DOM nodes directly; it only returns sanitized HTML strings.
+- **Supported contexts**: Designed for server-side rendering pipelines and JavaScript runtimes (Node.js ≥22, Cloudflare Workers, Deno) where DOM APIs are unavailable. Browser usage is possible, but the sanitizer never mutates DOM nodes directly; it only returns sanitized HTML strings.
 - **Supported inputs**: Operates on HTML _fragments_ (snippets destined for innerHTML/text interpolation). Full documents (`<!DOCTYPE>`, `<html>`, `<head>`) are normalized but not guaranteed to preserve structure.
 - **Guarantees**: Removes elements outside a conservative allowlist, strips disallowed attributes (especially event handlers, protocol-relative URLs, and URL-bearing attributes with non-HTTP(S)/mailto/tel/ftp/sms protocols), normalizes and escapes inline text, and self-closes void tags.
 - **Non-goals / exclusions**: Does **not** sanitize or interpret CSS (`style` attributes are dropped), JavaScript, MathML, or SVG namespaces—content in those namespaces is removed rather than partially sanitized. It does not attempt to sanitize inline `<style>` blocks or external resources (`<link>`, `<script>`, `<iframe>`, etc.) and should be paired with CSPs.
