@@ -51,4 +51,4 @@ npm run verify:release -- 0.0.20
 ```
 
 This checks npm metadata, installs `unsane@<version>` into a temporary consumer,
-and verifies ESM, CommonJS, CLI, and TypeScript consumption.
+and verifies ESM, CLI, and TypeScript consumption.

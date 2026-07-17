@@ -28,9 +28,6 @@ Unsane requires a supported release of **Node.js 22 or later**.
 // ES Modules
 import { sanitize } from "unsane";
 
-// CommonJS
-const { sanitize } = require("unsane");
-
 // Input: potentially malicious HTML
 const dirty =
   '<script>alert("xss")</script><div onclick="alert(`pwned`)">Hello</div>';
