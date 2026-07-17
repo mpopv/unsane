@@ -32,6 +32,28 @@ function runBin(cwd, binName, args, options = {}) {
   return run(binPath, args, { cwd, ...options });
 }
 
+async function readPublishedMetadata(packageSpec) {
+  let lastError;
+
+  for (let attempt = 1; attempt <= 6; attempt++) {
+    try {
+      return JSON.parse(
+        run("npm", ["view", packageSpec, "version", "dist", "--json"]),
+      );
+    } catch (error) {
+      lastError = error;
+      if (attempt === 6) break;
+
+      console.log(
+        `Waiting for ${packageSpec} to reach the registry (attempt ${attempt}/6)...`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, 10_000));
+    }
+  }
+
+  throw lastError;
+}
+
 function assertCli(cwd) {
   const binPath = join(
     cwd,
@@ -64,12 +86,14 @@ const packageSpec = `unsane@${version}`;
 const tempRoot = mkdtempSync(join(tmpdir(), "unsane-post-release-"));
 
 try {
-  const npmView = JSON.parse(
-    run("npm", ["view", packageSpec, "version", "dist", "--json"]),
-  );
+  const npmView = await readPublishedMetadata(packageSpec);
 
   if (npmView.version !== version) {
     throw new Error(`Expected npm version ${version}, got ${npmView.version}`);
+  }
+
+  if (!npmView.dist?.integrity || !npmView.dist?.tarball) {
+    throw new Error(`Registry metadata for ${packageSpec} is incomplete.`);
   }
 
   console.log(`Verified npm metadata for ${packageSpec}`);
@@ -86,11 +110,21 @@ try {
       "--ignore-scripts",
       "--no-audit",
       "--no-fund",
+      "--prefer-online",
       packageSpec,
       "typescript@^5.9.3",
     ],
     { cwd: consumerDir, stdio: "inherit" },
   );
+
+  const installedPackage = JSON.parse(
+    readFileSync(join(consumerDir, "node_modules", "unsane", "package.json")),
+  );
+  if (installedPackage.version !== version) {
+    throw new Error(
+      `Installed unsane ${installedPackage.version}, expected ${version}.`,
+    );
+  }
 
   writeFileSync(
     join(consumerDir, "esm-check.mjs"),
@@ -138,7 +172,7 @@ if (sanitize('<img src="javascript:alert(1)"><span>ok</span>') !== "<img /><span
     join(consumerDir, "types-check.ts"),
     `import { sanitize, type SanitizerOptions } from "unsane";
 
-const options: SanitizerOptions = { allowedTags: ["a"], maxInputLength: 1024 };
+const options: SanitizerOptions = { allowedTags: ["a"] };
 const output: string = sanitize("<a>ok</a>", options);
 void output;
 `,

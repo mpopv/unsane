@@ -130,8 +130,8 @@ This reads HTML from `stdin` and prints the sanitized result to `stdout`.
 
 This library is designed to be lightweight while providing comprehensive HTML sanitization:
 
-| Metric                                 | Size         |
-| -------------------------------------- | ------------ |
+| Metric                                 | Size        |
+| -------------------------------------- | ----------- |
 | Runtime import closure                 | ~30.13 KB   |
 | Runtime import closure gzipped         | ~7.62 KB    |
 | Minified runtime closure               | ~8.93 KB    |
