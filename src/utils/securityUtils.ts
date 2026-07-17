@@ -2,8 +2,6 @@
  * Security utilities for HTML sanitization
  */
 
-import { decode } from "./htmlEntities.js";
-
 // Only these protocols are allowed (allowlist approach)
 export const ALLOWED_PROTOCOLS = new Set(
   "http: https: mailto: tel: ftp: sms:".split(" "),
@@ -19,12 +17,9 @@ export const DANGEROUS_CONTENT =
     " ",
   );
 
-const HTML_ENTITY_PATTERN = /&(#x[0-9a-f]+|#[0-9]+|[a-z][a-z0-9]+);?/gi;
-
 /* eslint-disable no-control-regex */
-const URL_OBFUSCATION_PATTERN = /[\0-\x1f\x7f-\x9f\u200c-\u200f\ufeff]/;
-const STRIP_PROTOCOL_OBFUSCATION_PATTERN =
-  /[\s\0-\x1f\x7f-\x9f\u200c-\u200f\ufeff]/g;
+const URL_NORMALIZE_PATTERN =
+  /&(#x[0-9a-f]+|#[0-9]+|[a-z][a-z0-9]+);?|[\s\0-\x1f\x7f-\x9f\u200c-\u200f\ufeff]/gi;
 const DANGEROUS_OBFUSCATION_PATTERN =
   /(?:\\u0000|[\0-\x1f\x7f-\x9f\u200c-\u200d\ufeff])/;
 /* eslint-enable no-control-regex */
@@ -49,33 +44,61 @@ function codePointToUrlChar(codePoint: number, fallback: string): string {
   return String.fromCodePoint(codePoint);
 }
 
-function decodeUrlEntitiesOnce(value: string): string {
-  return decode(value).replace(HTML_ENTITY_PATTERN, (match, entity) => {
-    const normalized = entity.toLowerCase();
-
-    if (normalized.startsWith("#x")) {
-      return codePointToUrlChar(parseInt(normalized.slice(2), 16), match);
-    }
-
-    if (normalized.startsWith("#")) {
-      return codePointToUrlChar(parseInt(normalized.slice(1), 10), match);
-    }
-
-    return URL_NAMED_ENTITIES[normalized] || match;
-  });
+function isUnsafeUrlCharacter(value: string): boolean {
+  const code = value.charCodeAt(0);
+  return (
+    code <= 0x1f ||
+    (code >= 0x7f && code <= 0x9f) ||
+    (code >= 0x200c && code <= 0x200f) ||
+    code === 0xfeff
+  );
 }
 
-function decodeUrlEntities(value: string): string {
-  let decoded = value;
+function normalizeUrl(value: string): string | undefined {
+  let normalized = value;
 
-  for (let pass = 0; pass < 4; pass++) {
-    const next = decodeUrlEntitiesOnce(decoded);
-    // Stryker disable next-line ConditionalExpression: this only avoids redundant iterations within the same fixed four-pass bound.
-    if (next === decoded) break;
-    decoded = next;
+  // Eight fused passes preserve the former decoder's maximum nested-entity
+  // depth while collapsing its separate entity, control, and whitespace scans.
+  for (let pass = 0; pass < 8; pass++) {
+    // Stryker disable next-line BooleanLiteral: another bounded pass over an entity-free string produces the same normalized URL.
+    let decodedEntity = false;
+    let unsafe = false;
+
+    normalized = normalized.replace(
+      URL_NORMALIZE_PATTERN,
+      (match, entity?: string) => {
+        if (!entity) {
+          unsafe ||= isUnsafeUrlCharacter(match);
+          return "";
+        }
+
+        const entityName = entity.toLowerCase();
+        const numeric = entityName[0] === "#";
+        const hexadecimal = entityName[1] === "x";
+        const decoded = numeric
+          ? codePointToUrlChar(
+              parseInt(
+                entityName.slice(hexadecimal ? 2 : 1),
+                hexadecimal ? 16 : 10,
+              ),
+              match,
+            )
+          : URL_NAMED_ENTITIES[entityName] || match;
+
+        // Stryker disable next-line ConditionalExpression: reprocessing an unchanged entity only consumes the same fixed pass budget.
+        if (decoded === match) return match;
+        decodedEntity = true;
+        unsafe ||= isUnsafeUrlCharacter(decoded);
+        return /\s/.test(decoded) ? "" : decoded;
+      },
+    );
+
+    if (unsafe) return undefined;
+    // Stryker disable next-line ConditionalExpression: this only avoids redundant iterations within the same fixed eight-pass bound.
+    if (!decodedEntity) break;
   }
 
-  return decoded;
+  return normalized.toLowerCase();
 }
 
 export function isUrlAttribute(name: string): boolean {
@@ -83,15 +106,8 @@ export function isUrlAttribute(name: string): boolean {
 }
 
 export function isSafeUrlAttributeValue(value: string): boolean {
-  const decoded = decodeUrlEntities(value);
-
-  if (URL_OBFUSCATION_PATTERN.test(decoded)) {
-    return false;
-  }
-
-  const normalized = decoded
-    .replace(STRIP_PROTOCOL_OBFUSCATION_PATTERN, "")
-    .toLowerCase();
+  const normalized = normalizeUrl(value);
+  if (normalized === undefined) return false;
 
   if (normalized.startsWith("//")) {
     return false;

@@ -1,7 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { decode, encode, escape } from "./htmlEntities.js";
+import { decode, encode, escape, normalizeText } from "./htmlEntities.js";
 
 describe("htmlEntities", () => {
+  describe("normalizeText", () => {
+    it("combines control filtering and escaping after entity decoding", () => {
+      expect(normalizeText("<&amp;&#128;&madeup;`>")).toBe(
+        "&lt;&amp;&amp;madeup;&#x60;&gt;",
+      );
+    });
+  });
+
   describe("decode", () => {
     it("should decode named entities", () => {
       expect(decode("&lt;div&gt;")).toBe("<div>");

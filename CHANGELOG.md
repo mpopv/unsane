@@ -20,6 +20,7 @@
 
 ### Improvements
 
+- Fused URL entity decoding, control detection, and whitespace removal, and combined text control filtering with escaping to avoid repeated full-input scans.
 - Added changelog-derived release notes, `npm publish --dry-run`, and post-release npm artifact verification to the release flow.
 - Pinned GitHub Actions by commit, bounded workflow concurrency/runtime, enforced release tag/version equality, and wired registry verification into publishing.
 - Added performance regression coverage for large fragments, deep nesting, and large attribute payloads.
