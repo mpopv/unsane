@@ -178,7 +178,7 @@ describe("htmlSanitizer", () => {
     expect(sanitize('<div attr=">test</div>')).toBe("");
     expect(sanitize('<div attr="value>test</div>')).toBe("");
     expect(sanitize("<div attr=value>test</div>")).toBe("<div>test</div>");
-    expect(sanitize("<div/>test")).toBe("<div />test");
+    expect(sanitize("<div/>test")).toBe("<div></div>test");
     expect(
       sanitize("<div checked disabled>test</div>", {
         allowedTags: ["div"],

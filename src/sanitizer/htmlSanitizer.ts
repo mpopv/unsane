@@ -16,9 +16,10 @@
  * - `stack` tracks only allowed, non-void elements. Whenever structural
  *   anomalies are detected (e.g., `<div>` inside `<p>`), we eagerly close
  *   mismatched ancestors to keep the output tree balanced.
- * - Void elements (`br`, `img`, etc.) and explicit self-closing tokens never
- *   push to the stack. They are emitted in `<tag />` form to avoid relying on
- *   downstream HTML serializers.
+ * - Void elements (`br`, `img`, etc.) are emitted in `<tag />` form. Explicit
+ *   self-closing syntax on non-void HTML elements is expanded to an opening and
+ *   closing tag because browsers otherwise ignore the slash and keep the
+ *   element open.
  */
 
 import { DEFAULT_OPTIONS } from "./config.js";
@@ -368,24 +369,19 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
         stack.splice(pIndex);
       }
 
-      // Handle void elements and self-closing tags
-      if (VOID_ELEMENTS.has(tagName) || selfClosing) {
-        const attrsStr = processAttributes(
-          attrs,
-          tagName,
-          mergedOptions.allowedAttributes,
-        );
+      const attrsStr = processAttributes(
+        attrs,
+        tagName,
+        mergedOptions.allowedAttributes,
+      );
 
-        // Always use self-closing format
+      if (VOID_ELEMENTS.has(tagName)) {
         output += `<${tagName}${attrsStr} />`;
+      } else if (selfClosing) {
+        output += `<${tagName}${attrsStr}></${tagName}>`;
       } else {
         // Regular opening tag - add to stack
         stack.push(tagName);
-        const attrsStr = processAttributes(
-          attrs,
-          tagName,
-          mergedOptions.allowedAttributes,
-        );
         output += `<${tagName}${attrsStr}>`;
       }
     }

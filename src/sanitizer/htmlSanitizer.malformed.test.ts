@@ -78,4 +78,18 @@ describe("htmlSanitizer malformed parser corpus", () => {
       expect(reparsed).not.toMatch(/\s(?:href|src)=["']?\s*javascript:/i);
     }
   });
+
+  it("does not let self-closing syntax keep non-void elements open in browsers", () => {
+    const input = '<a href="https://example.com"/>Trusted account settings';
+    const sanitized = sanitize(input);
+
+    expect(sanitized).toBe(
+      '<a href="https://example.com"></a>Trusted account settings',
+    );
+    expect(browserBody(sanitized)).toBe(sanitized);
+
+    const document = new JSDOM(`<body>${sanitized}</body>`).window.document;
+    expect(document.querySelector("a")?.textContent).toBe("");
+    expect(document.body.textContent).toBe("Trusted account settings");
+  });
 });
