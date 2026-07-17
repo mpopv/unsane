@@ -58,6 +58,7 @@ const UNSAFE_ATTRIBUTE_CHARS_PATTERN = /[\0-\x1f\x7f-\x9f\u200c-\u200f\ufeff]/;
 const DANGEROUS_ATTRIBUTE_PATTERN =
   /^(?:on|style$|formaction$|xlink:href$|action$)/;
 
+<<<<<<< HEAD
 function normalizeStringList(values: unknown, optionName: string): Set<string> {
   if (!Array.isArray(values)) {
     throw new TypeError(`Invalid ${optionName}.`);
@@ -84,16 +85,26 @@ function normalizeAllowedAttributes(
     throw new TypeError("Invalid allowedAttributes.");
   }
 
+=======
+function normalizeAllowedAttributes(
+  attributes: Record<string, string[]>,
+): Map<string, Set<string>> {
+>>>>>>> origin/main
   const normalized = new Map<string, Set<string>>();
 
   for (const [tagName, attrs] of Object.entries(attributes)) {
     const normalizedTagName = tagName.toLowerCase();
     const normalizedAttrs = normalized.get(normalizedTagName) ?? new Set();
+<<<<<<< HEAD
     for (const attr of normalizeStringList(
       attrs,
       `allowedAttributes.${tagName}`,
     )) {
       normalizedAttrs.add(attr);
+=======
+    for (const attr of attrs) {
+      normalizedAttrs.add(attr.toLowerCase());
+>>>>>>> origin/main
     }
     normalized.set(normalizedTagName, normalizedAttrs);
   }
@@ -101,6 +112,7 @@ function normalizeAllowedAttributes(
   return normalized;
 }
 
+<<<<<<< HEAD
 function normalizeOptions(options?: SanitizerOptions): NormalizedOptions {
   if (
     options !== undefined &&
@@ -108,6 +120,19 @@ function normalizeOptions(options?: SanitizerOptions): NormalizedOptions {
   ) {
     throw new TypeError("Invalid options.");
   }
+=======
+function normalizeOptions(
+  options: Required<SanitizerOptions>,
+): NormalizedOptions {
+  return {
+    allowedTags: new Set(
+      options.allowedTags.map((value) => value.toLowerCase()),
+    ),
+    allowedAttributes: normalizeAllowedAttributes(options.allowedAttributes),
+    maxInputLength: options.maxInputLength ?? DEFAULT_OPTIONS.maxInputLength,
+  };
+}
+>>>>>>> origin/main
 
   return {
     allowedTags: normalizeStringList(
@@ -129,10 +154,11 @@ function normalizeOptions(options?: SanitizerOptions): NormalizedOptions {
 }
 
 function readTagName(html: string, position: number): string {
-  const match = html.slice(position).match(/^[a-zA-Z][a-zA-Z0-9\-_]*/);
-  /* c8 ignore next */
-  if (!match) return "";
-  return match[0].toLowerCase();
+  let end = position + 1;
+  while (end < html.length && /[a-zA-Z0-9\-_]/.test(html[end])) {
+    end++;
+  }
+  return html.slice(position, end).toLowerCase();
 }
 
 function findTagEnd(html: string, position: number): number {
@@ -150,9 +176,9 @@ function findElementContentEnd(
     return openTagEnd;
   }
 
-  const closeTagStart = html
-    .toLowerCase()
-    .indexOf(`</${tagName}`, openTagEnd + 1);
+  const closingTag = new RegExp(`</${tagName}`, "gi");
+  closingTag.lastIndex = openTagEnd + 1;
+  const closeTagStart = closingTag.exec(html)?.index ?? -1;
 
   if (closeTagStart === -1) {
     return html.length - 1;
@@ -238,7 +264,11 @@ function processAttributes(
     // Skip the attribute if it's not in the allowlist or it's a dangerous attribute pattern
     if (
       (!tagAllowedAttrs?.has(lowerName) && !globalAttrs?.has(lowerName)) ||
+<<<<<<< HEAD
       DANGEROUS_ATTRIBUTE_PATTERN.test(lowerName)
+=======
+      isDangerousAttribute(lowerName)
+>>>>>>> origin/main
     ) {
       continue;
     }
@@ -299,9 +329,11 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
 
   // Stack for tracking open tags
   const stack: string[] = [];
+  const previousOpenTagIndexes: number[] = [];
+  const lastOpenTagIndex = new Map<string, number>();
 
   // Output buffer
-  let output = "";
+  const output: string[] = [];
 
   // Parse state management
   let position = 0;
@@ -337,11 +369,40 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
       if (text.trim() || text.includes(" ")) {
         // Decode any entities, then re-encode as inert text
         // This handles both regular text and text with entities in one path
+<<<<<<< HEAD
         const decoded = decode(text).replace(CONTROL_CHARS_PATTERN, "");
         output += encode(decoded, { escapeOnly: true });
+=======
+        const decoded = decode(cleanText);
+        output.push(encode(decoded, { escapeOnly: true }));
+>>>>>>> origin/main
       }
 
       textBuffer = "";
+    }
+  }
+
+  function openTagIndex(tagName: string): number {
+    return lastOpenTagIndex.get(tagName) ?? -1;
+  }
+
+  function pushOpenTag(tagName: string): void {
+    previousOpenTagIndexes.push(openTagIndex(tagName));
+    lastOpenTagIndex.set(tagName, stack.length);
+    stack.push(tagName);
+  }
+
+  function closeStackFrom(index: number): void {
+    while (stack.length > index) {
+      const openTag = stack.pop()!;
+      output.push(`</${openTag}>`);
+
+      const previousIndex = previousOpenTagIndexes.pop()!;
+      if (previousIndex < 0) {
+        lastOpenTagIndex.delete(openTag);
+      } else {
+        lastOpenTagIndex.set(openTag, previousIndex);
+      }
     }
   }
 
@@ -358,16 +419,11 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
 
     if (mergedOptions.allowedTags.has(tagName)) {
       // Special handling for HTML structure - div inside p is invalid HTML
-      if (tagName === "div" && stack.includes("p")) {
-        const pIndex = stack.lastIndexOf("p");
-
-        // Close all tags up to and including the p tag
-        for (let i = stack.length - 1; i >= pIndex; i--) {
-          output += `</${stack[i]}>`;
+      if (tagName === "div") {
+        const pIndex = openTagIndex("p");
+        if (pIndex >= 0) {
+          closeStackFrom(pIndex);
         }
-
-        // Remove closed tags from stack
-        stack.splice(pIndex);
       }
 
       const attrsStr = processAttributes(
@@ -377,31 +433,32 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
       );
 
       if (VOID_ELEMENTS.has(tagName)) {
-        output += `<${tagName}${attrsStr} />`;
+        output.push(`<${tagName}${attrsStr} />`);
       } else if (selfClosing) {
-        output += `<${tagName}${attrsStr}></${tagName}>`;
+        output.push(`<${tagName}${attrsStr}></${tagName}>`);
       } else {
         // Regular opening tag - add to stack
-        stack.push(tagName);
-        output += `<${tagName}${attrsStr}>`;
+        pushOpenTag(tagName);
+        output.push(`<${tagName}${attrsStr}>`);
       }
     }
   }
 
   // Function to handle an end tag
   function handleEndTag(tagName: string) {
+<<<<<<< HEAD
     if (mergedOptions.allowedTags.has(tagName) && !VOID_ELEMENTS.has(tagName)) {
+=======
+    if (
+      mergedOptions.allowedTags.has(tagName) &&
+      !VOID_ELEMENTS.has(tagName)
+    ) {
+>>>>>>> origin/main
       // Find the matching opening tag in the stack
-      const index = stack.lastIndexOf(tagName);
+      const index = openTagIndex(tagName);
 
       if (index >= 0) {
-        // Close all nested tags properly
-        for (let i = stack.length - 1; i >= index; i--) {
-          output += `</${stack[i]}>`;
-        }
-
-        // Remove closed tags from stack
-        stack.splice(index);
+        closeStackFrom(index);
       }
     }
   }
@@ -622,9 +679,7 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
   emitText();
 
   // Close any remaining tags
-  for (let i = stack.length - 1; i >= 0; i--) {
-    output += `</${stack[i]}>`;
-  }
+  closeStackFrom(0);
 
-  return output;
+  return output.join("");
 }

@@ -13,11 +13,12 @@
 - Fixed CLI execution on Node 18 by using a `.js` bin target while preserving the `unsane` command name.
 - Fixed size analysis to inspect the current `dist/` runtime import closure instead of stale `dist/src/` paths.
 - Clarified that URL protocols are intentionally fixed to Unsane's conservative allowlist rather than configurable through an `allowedProtocols` option.
-- Raised the documented Node.js support floor to `>=18.18.0`, matching the current toolchain and CI coverage.
+- Raised the documented Node.js support floor to `>=22`, matching supported upstream release lines and CI coverage.
 
 ### Improvements
 
 - Added changelog-derived release notes, `npm publish --dry-run`, and post-release npm artifact verification to the release flow.
+- Pinned GitHub Actions by commit, bounded workflow concurrency/runtime, enforced release tag/version equality, and wired registry verification into publishing.
 - Added performance regression coverage for large fragments, deep nesting, and large attribute payloads.
 - Expanded malformed parser coverage with browser-reparse invariants.
 - Renamed older coverage-oriented tests around observable sanitizer behavior.
