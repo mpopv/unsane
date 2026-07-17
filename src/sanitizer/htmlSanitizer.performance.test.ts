@@ -19,6 +19,17 @@ function expectSanitizeUnder(
   return output;
 }
 
+function medianSanitizeDuration(html: string): number {
+  sanitize(html, { maxInputLength: Infinity });
+  const durations = Array.from({ length: 5 }, () => {
+    const start = performance.now();
+    sanitize(html, { maxInputLength: Infinity });
+    return performance.now() - start;
+  }).sort((left, right) => left - right);
+
+  return durations[2];
+}
+
 describe("htmlSanitizer performance guardrails", () => {
   it("sanitizes large repetitive fragments within budget", () => {
     const html = Array.from(
@@ -50,5 +61,26 @@ describe("htmlSanitizer performance guardrails", () => {
 
     expect(output).toContain('class="note"');
     expect(output).toContain("content");
+  });
+
+  it("scales near-linearly for adversarial parser inputs", () => {
+    const payloads = [
+      (count: number) => "<script>x</script>".repeat(count),
+      (count: number) =>
+        `${"<div>".repeat(count)}${"</span>".repeat(count)}`,
+    ];
+
+    for (const createPayload of payloads) {
+      // Keep the samples large enough that timer resolution, JIT warmup, and
+      // shared-runner scheduling noise cannot dominate the scaling signal.
+      const smallDuration = medianSanitizeDuration(createPayload(5_000));
+      const largeDuration = medianSanitizeDuration(createPayload(20_000));
+      const scalingRatio = largeDuration / Math.max(smallDuration, 0.25);
+
+      expect(
+        scalingRatio,
+        `4x input took ${scalingRatio.toFixed(2)}x longer`,
+      ).toBeLessThan(12);
+    }
   });
 });
