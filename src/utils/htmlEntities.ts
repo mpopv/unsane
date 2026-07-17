@@ -34,7 +34,7 @@ function codePointToString(codePoint: number): string {
     codePoint -= 0x10000;
     return String.fromCharCode(
       0xd800 + (codePoint >> 10),
-      0xdc00 + (codePoint & 0x3ff)
+      0xdc00 + (codePoint & 0x3ff),
     );
   }
 
@@ -134,29 +134,18 @@ export function decode(text: string): string {
   if (!text) return "";
 
   // Only decode entities with proper semicolons, matching HTML5 parsing rules
-  return text.replace(/&(#?[0-9A-Za-z]+);/g, (match, entity) => {
-    if (entity[0] === "#") {
-      // Numeric entity
-      /* c8 ignore next */
-      if (entity.length < 2) return match;
-
-      try {
+  return text.replace(
+    /&(#(?:[xX][\dA-Fa-f]+|\d+)|[0-9A-Za-z]+);/g,
+    (match, entity) => {
+      if (entity[0] === "#") {
         const codePoint =
           entity[1] === "x" || entity[1] === "X"
-            ? parseInt(entity.slice(2), 16) // Hex format
-            : parseInt(entity.slice(1), 10); // Decimal format
-
-        // Invalid number should return original match
-        if (isNaN(codePoint)) return match;
-
+            ? parseInt(entity.slice(2), 16)
+            : parseInt(entity.slice(1), 10);
         return codePointToString(codePoint);
-      } /* c8 ignore next */ catch {
-        return match;
-        /* c8 ignore next */
       }
-    }
 
-    // Named entity
-    return NAMED_TO_CHAR[entity] || match;
-  });
+      return NAMED_TO_CHAR[entity] || match;
+    },
+  );
 }

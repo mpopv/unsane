@@ -11,57 +11,21 @@ export const DEFAULT_MAX_INPUT_LENGTH = 1_000_000;
  */
 export const DEFAULT_OPTIONS: Required<SanitizerOptions> = {
   // Common HTML elements that are safe by default
-  allowedTags: [
-    // Headings
-    "h1",
-    "h2",
-    "h3",
-    "h4",
-    "h5",
-    "h6",
-
-    // Basic text formatting
-    "p",
-    "div",
-    "span",
-    "b",
-    "i",
-    "strong",
-    "em",
-
-    // Links and media
-    "a",
-    "img",
-
-    // Lists
-    "ul",
-    "ol",
-    "li",
-
-    // Tables
-    "table",
-    "tr",
-    "td",
-    "th",
-
-    // Other common elements
-    "br",
-    "hr",
-    "code",
-    "pre",
-    "blockquote",
-  ],
+  allowedTags:
+    "h1 h2 h3 h4 h5 h6 p div span b i strong em a img ul ol li table tr td th br hr code pre blockquote".split(
+      " ",
+    ),
 
   // Only the most essential attributes
   allowedAttributes: {
     // Links
-    a: ["href", "target", "rel"],
+    a: "href target rel".split(" "),
 
     // Images
-    img: ["src", "alt", "width", "height"],
+    img: "src alt width height".split(" "),
 
     // Global attributes
-    "*": ["id", "class"],
+    "*": "id class".split(" "),
   },
 
   maxInputLength: DEFAULT_MAX_INPUT_LENGTH,

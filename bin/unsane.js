@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 import { sanitize } from "../dist/index.js";
+import { DEFAULT_MAX_INPUT_LENGTH } from "../dist/sanitizer/config.js";
 
 let data = "";
+let inputTooLong = false;
 process.stdin.setEncoding("utf8");
 
 if (process.stdin.isTTY) {
@@ -10,10 +12,23 @@ if (process.stdin.isTTY) {
 }
 
 process.stdin.on("data", (chunk) => {
+  if (inputTooLong) return;
+
+  if (data.length + chunk.length > DEFAULT_MAX_INPUT_LENGTH) {
+    inputTooLong = true;
+    data = "";
+    console.error(`Input exceeds maxInputLength ${DEFAULT_MAX_INPUT_LENGTH}.`);
+    process.exitCode = 1;
+    process.stdin.destroy();
+    return;
+  }
+
   data += chunk;
 });
 
 process.stdin.on("end", () => {
+  if (inputTooLong) return;
+
   try {
     const clean = sanitize(data);
     process.stdout.write(clean);

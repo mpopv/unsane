@@ -39,61 +39,61 @@ type NormalizedOptions = {
 type OutputAttribute = [name: string, value: string, hasValue: boolean];
 
 // Define void elements (tags that should be self-closing)
-const VOID_ELEMENTS = new Set([
-  "area",
-  "base",
-  "br",
-  "col",
-  "embed",
-  "hr",
-  "img",
-  "input",
-  "link",
-  "meta",
-  "param",
-  "source",
-  "track",
-  "wbr",
-]);
+const VOID_ELEMENTS = new Set(
+  "area base br col embed hr img input link meta param source track wbr".split(
+    " ",
+  ),
+);
 
-const SKIP_CONTENT_ELEMENTS = new Set([
-  "script",
-  "style",
-  "iframe",
-  "object",
-  "embed",
-  "template",
-  "textarea",
-  "title",
-  "xmp",
-  "noembed",
-  "noframes",
-  "noscript",
-  "svg",
-  "math",
-]);
+const SKIP_CONTENT_ELEMENTS = new Set(
+  "script style iframe object embed template textarea title xmp noembed noframes noscript svg math".split(
+    " ",
+  ),
+);
 
-// Check if an attribute is considered dangerous
-function isDangerousAttribute(name: string): boolean {
-  return (
-    name.startsWith("on") ||
-    name === "style" ||
-    name === "formaction" ||
-    name === "xlink:href" ||
-    name === "action"
-  );
+/* eslint-disable no-control-regex */
+const CONTROL_CHARS_PATTERN = /[\0-\x1f\x7f-\x9f]/g;
+const UNSAFE_ATTRIBUTE_CHARS_PATTERN = /[\0-\x1f\x7f-\x9f\u200c-\u200f\ufeff]/;
+/* eslint-enable no-control-regex */
+const DANGEROUS_ATTRIBUTE_PATTERN =
+  /^(?:on|style$|formaction$|xlink:href$|action$)/;
+
+function normalizeStringList(values: unknown, optionName: string): Set<string> {
+  if (!Array.isArray(values)) {
+    throw new TypeError(`Invalid ${optionName}.`);
+  }
+
+  const normalized = new Set<string>();
+  for (const value of values) {
+    if (typeof value !== "string") {
+      throw new TypeError(`Invalid ${optionName}.`);
+    }
+    normalized.add(value.toLowerCase());
+  }
+  return normalized;
 }
 
 function normalizeAllowedAttributes(
-  attributes: Record<string, string[]>,
+  attributes: unknown,
 ): Map<string, Set<string>> {
+  if (
+    typeof attributes !== "object" ||
+    attributes === null ||
+    Array.isArray(attributes)
+  ) {
+    throw new TypeError("Invalid allowedAttributes.");
+  }
+
   const normalized = new Map<string, Set<string>>();
 
   for (const [tagName, attrs] of Object.entries(attributes)) {
     const normalizedTagName = tagName.toLowerCase();
     const normalizedAttrs = normalized.get(normalizedTagName) ?? new Set();
-    for (const attr of attrs) {
-      normalizedAttrs.add(attr.toLowerCase());
+    for (const attr of normalizeStringList(
+      attrs,
+      `allowedAttributes.${tagName}`,
+    )) {
+      normalizedAttrs.add(attr);
     }
     normalized.set(normalizedTagName, normalizedAttrs);
   }
@@ -101,28 +101,31 @@ function normalizeAllowedAttributes(
   return normalized;
 }
 
-function normalizeOptions(
-  options: Required<SanitizerOptions>,
-): NormalizedOptions {
-  return {
-    allowedTags: new Set(
-      options.allowedTags.map((value) => value.toLowerCase()),
-    ),
-    allowedAttributes: normalizeAllowedAttributes(options.allowedAttributes),
-    maxInputLength: options.maxInputLength ?? DEFAULT_OPTIONS.maxInputLength,
-  };
-}
+function normalizeOptions(options?: SanitizerOptions): NormalizedOptions {
+  if (
+    options !== undefined &&
+    (typeof options !== "object" || options === null || Array.isArray(options))
+  ) {
+    throw new TypeError("Invalid options.");
+  }
 
-function containsUnsafeAttributeChars(value: string): boolean {
-  return value.split("").some((char) => {
-    const code = char.charCodeAt(0);
-    return (
-      code <= 0x1f ||
-      (code >= 0x7f && code <= 0x9f) ||
-      (code >= 0x200c && code <= 0x200f) ||
-      code === 0xfeff
-    );
-  });
+  return {
+    allowedTags: normalizeStringList(
+      options?.allowedTags === undefined
+        ? DEFAULT_OPTIONS.allowedTags
+        : options.allowedTags,
+      "allowedTags",
+    ),
+    allowedAttributes: normalizeAllowedAttributes(
+      options?.allowedAttributes === undefined
+        ? DEFAULT_OPTIONS.allowedAttributes
+        : options.allowedAttributes,
+    ),
+    maxInputLength:
+      options?.maxInputLength === undefined
+        ? DEFAULT_OPTIONS.maxInputLength
+        : options.maxInputLength,
+  };
 }
 
 function readTagName(html: string, position: number): string {
@@ -236,7 +239,7 @@ function processAttributes(
     // Skip the attribute if it's not in the allowlist or it's a dangerous attribute pattern
     if (
       (!tagAllowedAttrs?.has(lowerName) && !globalAttrs?.has(lowerName)) ||
-      isDangerousAttribute(lowerName)
+      DANGEROUS_ATTRIBUTE_PATTERN.test(lowerName)
     ) {
       continue;
     }
@@ -246,7 +249,7 @@ function processAttributes(
       if (!isSafeUrlAttributeValue(value)) {
         continue;
       }
-    } else if (value && containsUnsafeAttributeChars(value)) {
+    } else if (value && UNSAFE_ATTRIBUTE_CHARS_PATTERN.test(value)) {
       continue;
     }
 
@@ -288,8 +291,11 @@ function processAttributes(
  * @returns Sanitized HTML string
  */
 export function sanitize(html: string, options?: SanitizerOptions): string {
-  // Merge default options with user options
-  const mergedOptions = normalizeOptions({ ...DEFAULT_OPTIONS, ...options });
+  if (typeof html !== "string") {
+    throw new TypeError("Invalid html.");
+  }
+
+  const mergedOptions = normalizeOptions(options);
   assertInputWithinLimit(html, mergedOptions.maxInputLength);
 
   // Stack for tracking open tags
@@ -332,18 +338,9 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
 
       // Only process non-empty text
       if (text.trim() || text.includes(" ")) {
-        // Remove any control characters directly
-        const cleanText = text
-          .split("")
-          .filter((char) => {
-            const code = char.charCodeAt(0);
-            return !(code <= 0x1f || (code >= 0x7f && code <= 0x9f));
-          })
-          .join("");
-
         // Decode any entities, then re-encode as inert text
         // This handles both regular text and text with entities in one path
-        const decoded = decode(cleanText);
+        const decoded = decode(text).replace(CONTROL_CHARS_PATTERN, "");
         output.push(encode(decoded, { escapeOnly: true }));
       }
 
