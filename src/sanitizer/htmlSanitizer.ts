@@ -23,7 +23,7 @@
  */
 
 import { DEFAULT_OPTIONS } from "./config.js";
-import { SanitizerOptions } from "../types.js";
+import { CompiledSanitizer, SanitizerOptions } from "../types.js";
 import { decode, encode, normalizeText } from "../utils/htmlEntities.js";
 import {
   isSafeUrlAttributeValue,
@@ -135,6 +135,14 @@ function normalizeOptions(options?: SanitizerOptions): NormalizedOptions {
         ? DEFAULT_OPTIONS.maxInputLength
         : options.maxInputLength,
   };
+}
+
+const DEFAULT_NORMALIZED_OPTIONS = normalizeOptions();
+
+function compileOptions(options?: SanitizerOptions): NormalizedOptions {
+  return options === undefined
+    ? DEFAULT_NORMALIZED_OPTIONS
+    : normalizeOptions(options);
 }
 
 function readTagName(html: string, position: number): string {
@@ -299,11 +307,28 @@ function processAttributes(
  * @returns Sanitized HTML string
  */
 export function sanitize(html: string, options?: SanitizerOptions): string {
+  return sanitizeWithOptions(html, compileOptions(options));
+}
+
+/**
+ * Compile a reusable sanitizer policy once for repeated calls.
+ *
+ * The supplied arrays and records are copied into internal lookup tables, so
+ * later caller mutations cannot change the compiled policy.
+ */
+export function createSanitizer(options?: SanitizerOptions): CompiledSanitizer {
+  const compiledOptions = compileOptions(options);
+  return (html: string) => sanitizeWithOptions(html, compiledOptions);
+}
+
+function sanitizeWithOptions(
+  html: string,
+  mergedOptions: NormalizedOptions,
+): string {
   if (typeof html !== "string") {
     invalid("html");
   }
 
-  const mergedOptions = normalizeOptions(options);
   assertInputWithinLimit(html, mergedOptions.maxInputLength);
 
   if (!html.includes("<")) return sanitizeText(html);
