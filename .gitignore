@@ -4,3 +4,5 @@ dist
 coverage
 .stryker-tmp
 reports
+playwright-report
+test-results

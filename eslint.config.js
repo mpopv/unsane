@@ -58,4 +58,12 @@ export default [
       },
     },
   },
+  {
+    files: ["test/browser/**/*.ts"],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+      },
+    },
+  },
 ];
