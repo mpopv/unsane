@@ -1,0 +1,585 @@
+{
+  "upstream": {
+    "repository": "https://github.com/html5lib/html5lib-tests",
+    "commit": "224991ec10db04f056a89eed8b0bd8695fd2950e"
+  },
+  "cases": [
+    {
+      "file": "test1.test",
+      "description": "Correct Doctype lowercase",
+      "input": "<!DOCTYPE html>",
+      "output": [
+        [
+          "DOCTYPE",
+          "html",
+          null,
+          null,
+          true
+        ]
+      ]
+    },
+    {
+      "file": "test1.test",
+      "description": "Correct Doctype uppercase",
+      "input": "<!DOCTYPE HTML>",
+      "output": [
+        [
+          "DOCTYPE",
+          "html",
+          null,
+          null,
+          true
+        ]
+      ]
+    },
+    {
+      "file": "test1.test",
+      "description": "Correct Doctype mixed case",
+      "input": "<!DOCTYPE HtMl>",
+      "output": [
+        [
+          "DOCTYPE",
+          "html",
+          null,
+          null,
+          true
+        ]
+      ]
+    },
+    {
+      "file": "test1.test",
+      "description": "Truncated doctype start",
+      "input": "<!DOC>",
+      "output": [
+        [
+          "Comment",
+          "DOC"
+        ]
+      ]
+    },
+    {
+      "file": "test1.test",
+      "description": "Single Start Tag",
+      "input": "<h>",
+      "output": [
+        [
+          "StartTag",
+          "h",
+          {}
+        ]
+      ]
+    },
+    {
+      "file": "test1.test",
+      "description": "Empty end tag",
+      "input": "</>",
+      "output": []
+    },
+    {
+      "file": "test1.test",
+      "description": "Empty start tag",
+      "input": "<>",
+      "output": [
+        [
+          "Character",
+          "<>"
+        ]
+      ]
+    },
+    {
+      "file": "test1.test",
+      "description": "Start Tag w/attribute",
+      "input": "<h a='b'>",
+      "output": [
+        [
+          "StartTag",
+          "h",
+          {
+            "a": "b"
+          }
+        ]
+      ]
+    },
+    {
+      "file": "test1.test",
+      "description": "Start Tag w/attribute no quotes",
+      "input": "<h a=b>",
+      "output": [
+        [
+          "StartTag",
+          "h",
+          {
+            "a": "b"
+          }
+        ]
+      ]
+    },
+    {
+      "file": "test1.test",
+      "description": "Start/End Tag",
+      "input": "<h></h>",
+      "output": [
+        [
+          "StartTag",
+          "h",
+          {}
+        ],
+        [
+          "EndTag",
+          "h"
+        ]
+      ]
+    },
+    {
+      "file": "test1.test",
+      "description": "End Tag w/attribute",
+      "input": "<h></h a='b'>",
+      "output": [
+        [
+          "StartTag",
+          "h",
+          {}
+        ],
+        [
+          "EndTag",
+          "h"
+        ]
+      ]
+    },
+    {
+      "file": "test1.test",
+      "description": "Multiple atts",
+      "input": "<h a='b' c='d'>",
+      "output": [
+        [
+          "StartTag",
+          "h",
+          {
+            "a": "b",
+            "c": "d"
+          }
+        ]
+      ]
+    },
+    {
+      "file": "test1.test",
+      "description": "Multiple atts no space",
+      "input": "<h a='b'c='d'>",
+      "output": [
+        [
+          "StartTag",
+          "h",
+          {
+            "a": "b",
+            "c": "d"
+          }
+        ]
+      ]
+    },
+    {
+      "file": "test1.test",
+      "description": "Repeated attr",
+      "input": "<h a='b' a='d'>",
+      "output": [
+        [
+          "StartTag",
+          "h",
+          {
+            "a": "b"
+          }
+        ]
+      ]
+    },
+    {
+      "file": "test1.test",
+      "description": "Simple comment",
+      "input": "<!--comment-->",
+      "output": [
+        [
+          "Comment",
+          "comment"
+        ]
+      ]
+    },
+    {
+      "file": "test1.test",
+      "description": "Comment, Central dash no space",
+      "input": "<!----->",
+      "output": [
+        [
+          "Comment",
+          "-"
+        ]
+      ]
+    },
+    {
+      "file": "test1.test",
+      "description": "Comment, two central dashes",
+      "input": "<!-- --comment -->",
+      "output": [
+        [
+          "Comment",
+          " --comment "
+        ]
+      ]
+    },
+    {
+      "file": "test1.test",
+      "description": "Unfinished comment",
+      "input": "<!--comment",
+      "output": [
+        [
+          "Comment",
+          "comment"
+        ]
+      ]
+    },
+    {
+      "file": "test1.test",
+      "description": "Start of a comment",
+      "input": "<!-",
+      "output": [
+        [
+          "Comment",
+          "-"
+        ]
+      ]
+    },
+    {
+      "file": "test1.test",
+      "description": "Short comment",
+      "input": "<!-->",
+      "output": [
+        [
+          "Comment",
+          ""
+        ]
+      ]
+    },
+    {
+      "file": "test1.test",
+      "description": "Short comment two",
+      "input": "<!--->",
+      "output": [
+        [
+          "Comment",
+          ""
+        ]
+      ]
+    },
+    {
+      "file": "test1.test",
+      "description": "Short comment three",
+      "input": "<!---->",
+      "output": [
+        [
+          "Comment",
+          ""
+        ]
+      ]
+    },
+    {
+      "file": "test1.test",
+      "description": "< in comment",
+      "input": "<!-- <test-->",
+      "output": [
+        [
+          "Comment",
+          " <test"
+        ]
+      ]
+    },
+    {
+      "file": "test1.test",
+      "description": "Nested comment",
+      "input": "<!-- <!--test-->",
+      "output": [
+        [
+          "Comment",
+          " <!--test"
+        ]
+      ]
+    },
+    {
+      "file": "test2.test",
+      "description": "Entity without a name",
+      "input": "&;",
+      "output": [
+        [
+          "Character",
+          "&;"
+        ]
+      ]
+    },
+    {
+      "file": "test2.test",
+      "description": "Unescaped ampersand in attribute value",
+      "input": "<h a='&'>",
+      "output": [
+        [
+          "StartTag",
+          "h",
+          {
+            "a": "&"
+          }
+        ]
+      ]
+    },
+    {
+      "file": "test2.test",
+      "description": "Non-void element containing trailing /",
+      "input": "<h/>",
+      "output": [
+        [
+          "StartTag",
+          "h",
+          {},
+          true
+        ]
+      ]
+    },
+    {
+      "file": "test2.test",
+      "description": "Void element with permitted slash",
+      "input": "<br/>",
+      "output": [
+        [
+          "StartTag",
+          "br",
+          {},
+          true
+        ]
+      ]
+    },
+    {
+      "file": "test2.test",
+      "description": "Void element with permitted slash (with attribute)",
+      "input": "<br foo='bar'/>",
+      "output": [
+        [
+          "StartTag",
+          "br",
+          {
+            "foo": "bar"
+          },
+          true
+        ]
+      ]
+    },
+    {
+      "file": "test2.test",
+      "description": "Double-quoted attribute value",
+      "input": "<h a=\"b\">",
+      "output": [
+        [
+          "StartTag",
+          "h",
+          {
+            "a": "b"
+          }
+        ]
+      ]
+    },
+    {
+      "file": "test4.test",
+      "description": "< in unquoted attribute value",
+      "input": "<z x=<>",
+      "output": [
+        [
+          "StartTag",
+          "z",
+          {
+            "x": "<"
+          }
+        ]
+      ]
+    },
+    {
+      "file": "test4.test",
+      "description": "= in unquoted attribute value",
+      "input": "<z z=z=z>",
+      "output": [
+        [
+          "StartTag",
+          "z",
+          {
+            "z": "z=z"
+          }
+        ]
+      ]
+    },
+    {
+      "file": "test4.test",
+      "description": "Text after bogus character reference",
+      "input": "<z z='&xlink_xmlns;'>bar<z>",
+      "output": [
+        [
+          "StartTag",
+          "z",
+          {
+            "z": "&xlink_xmlns;"
+          }
+        ],
+        [
+          "Character",
+          "bar"
+        ],
+        [
+          "StartTag",
+          "z",
+          {}
+        ]
+      ]
+    },
+    {
+      "file": "test4.test",
+      "description": "Text after hex character reference",
+      "input": "<z z='&#x0020; foo'>bar<z>",
+      "output": [
+        [
+          "StartTag",
+          "z",
+          {
+            "z": "  foo"
+          }
+        ],
+        [
+          "Character",
+          "bar"
+        ],
+        [
+          "StartTag",
+          "z",
+          {}
+        ]
+      ]
+    },
+    {
+      "file": "test4.test",
+      "description": "Double-quoted attribute value not followed by whitespace",
+      "input": "<foo a=\"b\"c>",
+      "output": [
+        [
+          "StartTag",
+          "foo",
+          {
+            "a": "b",
+            "c": ""
+          }
+        ]
+      ]
+    },
+    {
+      "file": "test4.test",
+      "description": "Single-quoted attribute value not followed by whitespace",
+      "input": "<foo a='b'c>",
+      "output": [
+        [
+          "StartTag",
+          "foo",
+          {
+            "a": "b",
+            "c": ""
+          }
+        ]
+      ]
+    },
+    {
+      "file": "test4.test",
+      "description": "Quoted attribute followed by permitted /",
+      "input": "<br a='b'/>",
+      "output": [
+        [
+          "StartTag",
+          "br",
+          {
+            "a": "b"
+          },
+          true
+        ]
+      ]
+    },
+    {
+      "file": "test4.test",
+      "description": "Quoted attribute followed by non-permitted /",
+      "input": "<bar a='b'/>",
+      "output": [
+        [
+          "StartTag",
+          "bar",
+          {
+            "a": "b"
+          },
+          true
+        ]
+      ]
+    },
+    {
+      "file": "entities.test",
+      "description": "Undefined named entity in a double-quoted attribute value ending in semicolon and whose name starts with a known entity name.",
+      "input": "<h a=\"&noti;\">",
+      "output": [
+        [
+          "StartTag",
+          "h",
+          {
+            "a": "&noti;"
+          }
+        ]
+      ]
+    },
+    {
+      "file": "entities.test",
+      "description": "Entity name requiring semicolon instead followed by the equals sign in a double-quoted attribute value.",
+      "input": "<h a=\"&lang=\">",
+      "output": [
+        [
+          "StartTag",
+          "h",
+          {
+            "a": "&lang="
+          }
+        ]
+      ]
+    },
+    {
+      "file": "entities.test",
+      "description": "Valid entity name followed by the equals sign in a double-quoted attribute value.",
+      "input": "<h a=\"&not=\">",
+      "output": [
+        [
+          "StartTag",
+          "h",
+          {
+            "a": "&not="
+          }
+        ]
+      ]
+    },
+    {
+      "file": "entities.test",
+      "description": "Undefined named entity in an unquoted attribute value ending in semicolon and whose name starts with a known entity name.",
+      "input": "<h a=&noti;>",
+      "output": [
+        [
+          "StartTag",
+          "h",
+          {
+            "a": "&noti;"
+          }
+        ]
+      ]
+    },
+    {
+      "file": "entities.test",
+      "description": "Ambiguous ampersand.",
+      "input": "&rrrraannddom;",
+      "output": [
+        [
+          "Character",
+          "&rrrraannddom;"
+        ]
+      ]
+    }
+  ]
+}
