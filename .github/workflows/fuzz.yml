@@ -1,0 +1,47 @@
+name: Coverage-guided fuzzing
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fuzz-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  sanitizer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm audit
+      - run: npm run test:fuzz
+      - run: npm run build
+
+      - name: Run bounded fuzz campaign
+        run: |
+          mkdir -p fuzz/artifacts
+          npx jazzer fuzz/sanitizer.fuzz.mjs --sync --timeout=2000 -i dist/ fuzz/corpus -- -max_total_time=900 -max_len=65536 -timeout=2 -rss_limit_mb=3072 -artifact_prefix=fuzz/artifacts/
+
+      - name: Upload minimized failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sanitizer-fuzz-failures
+          path: fuzz/artifacts/
+          if-no-files-found: warn
+          retention-days: 30

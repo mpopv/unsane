@@ -6,3 +6,8 @@ coverage
 reports
 playwright-report
 test-results
+fuzz/artifacts/*
+!fuzz/artifacts/.gitkeep
+crash-*
+timeout-*
+oom-*

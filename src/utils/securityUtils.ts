@@ -75,6 +75,7 @@ function normalizeUrl(value: string): string | undefined {
         const entityName = entity.toLowerCase();
         const numeric = entityName[0] === "#";
         const hexadecimal = entityName[1] === "x";
+        const namedEntity = URL_NAMED_ENTITIES[entityName];
         const decoded = numeric
           ? codePointToUrlChar(
               parseInt(
@@ -83,7 +84,9 @@ function normalizeUrl(value: string): string | undefined {
               ),
               match,
             )
-          : URL_NAMED_ENTITIES[entityName] || match;
+          : typeof namedEntity === "string"
+            ? namedEntity
+            : match;
 
         // Stryker disable next-line ConditionalExpression: reprocessing an unchanged entity only consumes the same fixed pass budget.
         if (decoded === match) return match;

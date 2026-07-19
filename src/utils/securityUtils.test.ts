@@ -68,6 +68,15 @@ describe("Security Utils", () => {
       ).toBe(false);
     });
 
+    it("should leave inherited object property names inert", () => {
+      for (const inheritedName of ["constructor", "toString", "valueOf"]) {
+        const value = `&${inheritedName};:relative`;
+
+        expect(() => isSafeUrlAttributeValue(value)).not.toThrow();
+        expect(isSafeUrlAttributeValue(value)).toBe(true);
+      }
+    });
+
     it("should keep recursive entity decoding within its fixed bound", () => {
       let encodedColon = "&colon;";
 
