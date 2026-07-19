@@ -1,11 +1,26 @@
 import { describe, it, expect } from "vitest";
-import { decode, encode, escape, normalizeText } from "./htmlEntities.js";
+import {
+  decode,
+  encode,
+  escape,
+  normalizeAttributeValue,
+  normalizeText,
+} from "./htmlEntities.js";
 
 describe("htmlEntities", () => {
   describe("normalizeText", () => {
     it("combines control filtering and escaping after entity decoding", () => {
       expect(normalizeText("<&amp;&#128;&madeup;`>")).toBe(
-        "&lt;&amp;&amp;madeup;&#x60;&gt;",
+        "&lt;&amp;€&madeup;&#x60;&gt;",
+      );
+    });
+
+    it("preserves browser-recognized named references without double decoding", () => {
+      expect(normalizeText("&copy; &NotEqualTilde; &amp;copy;")).toBe(
+        "&copy; &NotEqualTilde; &amp;copy;",
+      );
+      expect(normalizeAttributeValue("&copy; &amp;copy; &amp=literal")).toBe(
+        "&copy; &amp;copy; &amp=literal",
       );
     });
   });
@@ -31,16 +46,22 @@ describe("htmlEntities", () => {
       expect(decode("&#X3C;")).toBe("<"); // Capital X also works
     });
 
-    it("should handle malformed entities", () => {
-      // Malformed entities without semicolons should remain unchanged
-      expect(decode("&lt")).toBe("&lt");
+    it("should follow legacy semicolon omission rules", () => {
+      expect(decode("&lt &amp &quot &nbsp")).toBe("< & \" \u00A0");
+      expect(decode("&apos")).toBe("&apos");
 
       // Unknown or invalid entities with semicolons should remain unchanged
       expect(decode("&unknown;")).toBe("&unknown;");
       expect(decode("&#xGHI;")).toBe("&#xGHI;");
       expect(decode("&#abc;")).toBe("&#abc;");
-      expect(decode("&#12abc;")).toBe("&#12abc;");
+      expect(decode("&#12abc;")).toBe("\fabc;");
       expect(decode("&#;")).toBe("&#;");
+    });
+
+    it("should apply HTML numeric replacement rules", () => {
+      expect(decode("&#0; &#128; &#x82; &#x9f;")).toBe("� € ‚ Ÿ");
+      expect(decode("&#xD800; &#x110000;")).toBe("� �");
+      expect(decode("&#60 &#x3e")).toBe("< >");
     });
 
     it("should decode multiple entities in a string", () => {
@@ -171,7 +192,7 @@ describe("HTML Entities Edge Cases", () => {
     });
 
     it("should handle malformed entities", () => {
-      expect(decode("&amp")).toBe("&amp");
+      expect(decode("&amp")).toBe("&");
       expect(decode("&;")).toBe("&;");
       expect(decode("&#")).toBe("&#");
       expect(decode("&#x")).toBe("&#x");

@@ -269,8 +269,9 @@ describe("htmlSanitizer", () => {
   it("should not emit control characters introduced by entities", () => {
     expect(sanitize("<p>before&#12;after</p>")).toBe("<p>beforeafter</p>");
     expect(sanitize("<p>before&#12abc;after</p>")).toBe(
-      "<p>before&amp;#12abc;after</p>",
+      "<p>beforeabc;after</p>",
     );
+    expect(sanitize("<p>before&#0;after</p>")).toBe("<p>before�after</p>");
   });
 
   it("should preserve whitespace-only text nodes", () => {

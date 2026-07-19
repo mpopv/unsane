@@ -92,4 +92,31 @@ describe("htmlSanitizer malformed parser corpus", () => {
     expect(document.querySelector("a")?.textContent).toBe("");
     expect(document.body.textContent).toBe("Trusted account settings");
   });
+
+  it("preserves browser-visible named and numeric reference semantics", () => {
+    const input =
+      '<p title="&copy; &NotEqualTilde; &amp;copy; &#128; &#0;">' +
+      "&copy &NotEqualTilde; &amp;copy; &#128; &#0;</p>";
+    const output = sanitize(input, {
+      allowedTags: ["p"],
+      allowedAttributes: { p: ["title"] },
+    });
+    const inputDocument = new JSDOM(`<body>${input}</body>`).window.document;
+    const outputDocument = new JSDOM(`<body>${output}</body>`).window.document;
+
+    expect(output).toBe(
+      '<p title="&copy; &NotEqualTilde; &amp;copy; € �">' +
+        "&copy &NotEqualTilde; &amp;copy; € �</p>",
+    );
+    expect(outputDocument.body.textContent).toBe(
+      inputDocument.body.textContent,
+    );
+    expect(outputDocument.querySelector("p")?.title).toBe(
+      inputDocument.querySelector("p")?.title,
+    );
+    expect(sanitize(output, {
+      allowedTags: ["p"],
+      allowedAttributes: { p: ["title"] },
+    })).toBe(output);
+  });
 });

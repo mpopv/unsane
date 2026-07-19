@@ -24,7 +24,12 @@
 
 import { DEFAULT_OPTIONS } from "./config.js";
 import { CompiledSanitizer, SanitizerOptions } from "../types.js";
-import { decode, encode, normalizeText } from "../utils/htmlEntities.js";
+import {
+  decode,
+  encode,
+  normalizeAttributeValue,
+  normalizeText,
+} from "../utils/htmlEntities.js";
 import {
   isSafeUrlAttributeValue,
   isUrlAttribute,
@@ -36,7 +41,12 @@ type NormalizedOptions = {
   allowedAttributes: Map<string, Set<string>>;
   maxInputLength: number;
 };
-type OutputAttribute = [name: string, value: string, hasValue: boolean];
+type OutputAttribute = [
+  name: string,
+  value: string,
+  hasValue: boolean,
+  serializedValue?: string,
+];
 
 const enum ParserState {
   Text,
@@ -248,6 +258,7 @@ function processAttributes(
 
   // Process each attribute
   for (let [name, value, hasValue] of attrs) {
+    const rawValue = value;
     value = decode(value);
 
     // Skip the attribute if it's not in the allowlist or it's a dangerous attribute pattern
@@ -277,7 +288,14 @@ function processAttributes(
       hasBlankTarget = true;
     }
 
-    outputAttrs.push([name, value, hasValue]);
+    outputAttrs.push([
+      name,
+      value,
+      hasValue,
+      isUrlAttribute(name) || name === "target" || name === "rel"
+        ? undefined
+        : normalizeAttributeValue(rawValue),
+    ]);
   }
 
   if (tagName === "a" && hasBlankTarget) {
@@ -285,15 +303,18 @@ function processAttributes(
 
     if (relAttr) {
       relAttr[1] = mergeSafeRel(relAttr[1]);
+      relAttr[3] = undefined;
     } else {
       outputAttrs.push(["rel", "noopener noreferrer", true]);
     }
   }
 
   return outputAttrs
-    .map(([name, value, hasValue]) =>
+    .map(([name, value, hasValue, serializedValue]) =>
       hasValue
-        ? ` ${name}="${encode(value, { escapeOnly: true })}"`
+        ? ` ${name}="${
+            serializedValue ?? encode(value, { escapeOnly: true })
+          }"`
         : ` ${name}`,
     )
     .join("");
