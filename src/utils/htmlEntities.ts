@@ -22,6 +22,9 @@ const CHAR_TO_NAMED: Record<string, string> = {
 
 // Characters to always escape for security reasons
 const ESCAPE_CHARS = /["'&<>`]/g;
+/* eslint-disable no-control-regex */
+const TEXT_NORMALIZE_PATTERN = /[\0-\x1f\x7f-\x9f"'&<>`]/g;
+/* eslint-enable no-control-regex */
 
 /**
  * Convert a code point to a string, handling surrogate pairs
@@ -39,6 +42,12 @@ function codePointToString(codePoint: number): string {
   }
 
   return String.fromCharCode(codePoint);
+}
+
+function escapeOnlyChar(char: string): string {
+  if (char === "'") return "&#x27;";
+  if (char === "`") return "&#x60;";
+  return `&${CHAR_TO_NAMED[char]};`;
 }
 
 /**
@@ -89,20 +98,7 @@ export function encode(text: string, options: EncodeOptions = {}): string {
 
     // For escape function compatibility - use fixed output format for tests
     if (escapeOnly) {
-      switch (char) {
-        case '"':
-          return "&quot;";
-        case "'":
-          return "&#x27;";
-        case "&":
-          return "&amp;";
-        case "<":
-          return "&lt;";
-        case ">":
-          return "&gt;";
-        case "`":
-          return "&#x60;";
-      }
+      return escapeOnlyChar(char);
     }
 
     // Use named references if requested and available
@@ -148,4 +144,13 @@ export function decode(text: string): string {
       return NAMED_TO_CHAR[entity] || match;
     },
   );
+}
+
+/** Decode entities, then remove controls and escape inert text in one scan. */
+export function normalizeText(text: string): string {
+  return decode(text).replace(TEXT_NORMALIZE_PATTERN, (char) => {
+    const code = char.charCodeAt(0);
+    if (code <= 0x1f || (code >= 0x7f && code <= 0x9f)) return "";
+    return escapeOnlyChar(char);
+  });
 }

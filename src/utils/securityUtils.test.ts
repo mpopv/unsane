@@ -42,8 +42,17 @@ describe("Security Utils", () => {
 
     it("should decode entity-obfuscated protocols before checking", () => {
       expect(isSafeUrlAttributeValue("j&#97;vascript:void(0)")).toBe(false);
+      expect(isSafeUrlAttributeValue("&#104;ttps://example.com")).toBe(true);
       expect(isSafeUrlAttributeValue("javascript&#58;void(0)")).toBe(false);
       expect(isSafeUrlAttributeValue("jav&#x09;ascript:void(0)")).toBe(false);
+      expect(isSafeUrlAttributeValue("java&tab;script:void(0)")).toBe(false);
+      expect(isSafeUrlAttributeValue("java&nbsp;script:void(0)")).toBe(false);
+      expect(isSafeUrlAttributeValue("https://example.com/a&nbsp;b")).toBe(
+        true,
+      );
+      expect(isSafeUrlAttributeValue("https://example.com/a&tab;b")).toBe(
+        false,
+      );
       expect(isSafeUrlAttributeValue("&#106;avascript:void(0)")).toBe(false);
       expect(isSafeUrlAttributeValue("&#106avascript:void(0)")).toBe(false);
       expect(
@@ -52,28 +61,61 @@ describe("Security Utils", () => {
         ),
       ).toBe(false);
       expect(isSafeUrlAttributeValue("javascript&colon;void(0)")).toBe(false);
+      expect(
+        isSafeUrlAttributeValue(
+          `javascript&${"amp;".repeat(7)}colon;void(0)`,
+        ),
+      ).toBe(false);
     });
 
     it("should keep recursive entity decoding within its fixed bound", () => {
       let encodedColon = "&colon;";
 
-      for (let layer = 0; layer < 9; layer++) {
-        encodedColon = encodedColon.replace("&", "&amp;");
+      for (let layer = 0; layer < 8; layer++) {
+        encodedColon = `&amp;${encodedColon.slice(1)}`;
       }
 
       expect(
         isSafeUrlAttributeValue(`javascript${encodedColon}alert(1)`),
+      ).toBe(true);
+
+      expect(
+        isSafeUrlAttributeValue(
+          `javascript&amp;${encodedColon.slice(1)}alert(1)`,
+        ),
       ).toBe(true);
     });
 
     it("should reject control and unicode obfuscation characters", () => {
       expect(isSafeUrlAttributeValue("java\tscript:void(0)")).toBe(false);
       expect(isSafeUrlAttributeValue("java script:void(0)")).toBe(false);
+      expect(isSafeUrlAttributeValue("h t t p s ://example.com")).toBe(true);
       expect(isSafeUrlAttributeValue("javascript\u200C:void(0)")).toBe(false);
       expect(isSafeUrlAttributeValue("https://example.com/\u0001x")).toBe(
         false,
       );
+      expect(isSafeUrlAttributeValue("https://example.com/\u007Fx")).toBe(
+        false,
+      );
+      expect(isSafeUrlAttributeValue("https://example.com/\u009Fx")).toBe(
+        false,
+      );
+      expect(isSafeUrlAttributeValue("https://example.com/\u200Cx")).toBe(
+        false,
+      );
       expect(isSafeUrlAttributeValue("https://example.com/\u200Dx")).toBe(
+        false,
+      );
+      expect(isSafeUrlAttributeValue("https://example.com/\u200Fx")).toBe(
+        false,
+      );
+      expect(isSafeUrlAttributeValue("https://example.com/\uFEFFx")).toBe(
+        false,
+      );
+      expect(isSafeUrlAttributeValue("https://example.com/&#127;x")).toBe(
+        false,
+      );
+      expect(isSafeUrlAttributeValue("https://example.com/&#159;x")).toBe(
         false,
       );
     });
@@ -86,6 +128,9 @@ describe("Security Utils", () => {
         isSafeUrlAttributeValue("https://example.com/&#999999999;/x"),
       ).toBe(true);
       expect(isSafeUrlAttributeValue("https://example.com/&#999999999/x")).toBe(
+        true,
+      );
+      expect(isSafeUrlAttributeValue("https://example.com/&#xD800;/x")).toBe(
         true,
       );
     });

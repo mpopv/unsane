@@ -24,7 +24,7 @@
 
 import { DEFAULT_OPTIONS } from "./config.js";
 import { SanitizerOptions } from "../types.js";
-import { encode, decode } from "../utils/htmlEntities.js";
+import { decode, encode, normalizeText } from "../utils/htmlEntities.js";
 import {
   isSafeUrlAttributeValue,
   isUrlAttribute,
@@ -58,10 +58,8 @@ const VOID_ELEMENTS = new Set(
 const SKIP_CONTENT_PATTERN =
   /^(script|style$|iframe$|object$|embed$|template$|textarea$|title$|xmp$|noembed$|noframes$|noscript$|svg$|math$|base$|link$|meta$)/;
 
-/* eslint-disable no-control-regex */
-const CONTROL_CHARS_PATTERN = /[\0-\x1f\x7f-\x9f]/g;
+// eslint-disable-next-line no-control-regex
 const UNSAFE_ATTRIBUTE_CHARS_PATTERN = /[\0-\x1f\x7f-\x9f\u200c-\u200f\ufeff]/;
-/* eslint-enable no-control-regex */
 const DANGEROUS_ATTRIBUTE_PATTERN =
   /^(on|style|(form)?action|xlink:href|srcdoc|(image)?srcset|ping|is$)/;
 
@@ -330,8 +328,7 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
       if (text.trim() || text.includes(" ")) {
         // Decode any entities, then re-encode as inert text
         // This handles both regular text and text with entities in one path
-        const decoded = decode(text).replace(CONTROL_CHARS_PATTERN, "");
-        output.push(encode(decoded, { escapeOnly: true }));
+        output.push(normalizeText(text));
       }
 
       textBuffer = "";
