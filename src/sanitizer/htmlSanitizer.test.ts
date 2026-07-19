@@ -285,6 +285,48 @@ describe("htmlSanitizer", () => {
     ).toBe("<input disabled />");
   });
 
+  it("should canonicalize attribute entities without changing their values", () => {
+    const input =
+      '<a href="https://example.com/?a=1&amp;b=2" title="say &quot;hello&quot;">Link</a>';
+
+    expect(
+      sanitize(input, {
+        allowedTags: ["a"],
+        allowedAttributes: { a: ["href", "title"] },
+      }),
+    ).toBe(input);
+  });
+
+  it("should produce fixed-point output for encoded attributes", () => {
+    const inputs = [
+      '<div class="a&amp;b">Text</div>',
+      '<img alt="&quot;" src="/image?a=1&amp;b=2">',
+      '<a href="https://example.com/?a=1&amp;amp;b=2">Link</a>',
+      '<a href="/docs" target="&#95;blank">Docs</a>',
+      '<div data-value="raw&value">Text</div>',
+    ];
+
+    for (const input of inputs) {
+      const once = sanitize(input);
+      let repeated = once;
+
+      for (let pass = 0; pass < 100; pass++) {
+        repeated = sanitize(repeated);
+      }
+
+      expect(repeated, input).toBe(once);
+    }
+  });
+
+  it("should reject controls introduced by attribute entities", () => {
+    expect(
+      sanitize('<div title="before&#12;after">Text</div>', {
+        allowedTags: ["div"],
+        allowedAttributes: { div: ["title"] },
+      }),
+    ).toBe("<div>Text</div>");
+  });
+
   it("should enforce configurable input length limits", () => {
     expect(() => sanitize("<p>ok</p>", { maxInputLength: 4 })).toThrow(
       RangeError,

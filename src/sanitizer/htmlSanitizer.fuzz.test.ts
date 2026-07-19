@@ -296,6 +296,7 @@ function expectSanitizerInvariants(
   expect(balancedAllowedTags(output), input).toBe(true);
 
   const resanitized = sanitize(output, options);
+  expect(resanitized, input).toBe(output);
   expect(resanitized.length, input).toBeLessThanOrEqual(output.length * 8 + 256);
   expectSafeTagTokens(resanitized, input);
   expect(balancedAllowedTags(resanitized), input).toBe(true);
