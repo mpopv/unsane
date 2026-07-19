@@ -19,6 +19,7 @@
     "build": "npm run clean && tsc",
     "test": "vitest run --coverage",
     "test:mutation": "stryker run",
+    "test:browser": "npm run build && playwright test",
     "lint": "eslint . --ext .ts,.js",
     "prepare": "npm run build",
     "clean": "rm -rf dist",
@@ -50,6 +51,7 @@
     "node": ">=22.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@stryker-mutator/core": "^9.6.1",
     "@stryker-mutator/vitest-runner": "^9.6.1",
     "@types/node": "^25.8.0",
