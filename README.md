@@ -62,6 +62,20 @@ const clean = sanitize(dirty, options);
 // -> '<a href="https://example.com">Link</a>'
 ```
 
+When the same policy is used repeatedly, compile it once to avoid rebuilding
+its lookup tables for every input:
+
+```javascript
+import { createSanitizer } from "unsane";
+
+const comments = createSanitizer({
+  allowedTags: ["p", "strong", "em", "a"],
+  allowedAttributes: { a: ["href"] },
+});
+
+comments('<p><a href="/docs">Read the docs</a></p>');
+```
+
 Available options:
 
 - `allowedTags` – array of tag names that are kept in the sanitized output.

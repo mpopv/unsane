@@ -128,13 +128,16 @@ try {
 
   writeFileSync(
     join(consumerDir, "esm-check.mjs"),
-    `import { sanitize, escape, encode, decode } from "unsane";
+    `import { createSanitizer, sanitize, escape, encode, decode } from "unsane";
 
 if (sanitize('<a href="javascript:alert(1)">bad</a><p>ok</p>') !== "<a>bad</a><p>ok</p>") {
   throw new Error("ESM sanitize failed");
 }
 if (decode(encode(escape("<x>"))) !== "&lt;x&gt;") {
   throw new Error("ESM entity helpers failed");
+}
+if (createSanitizer({ allowedTags: ["p"] })("<div>drop</div><p>keep</p>") !== "drop<p>keep</p>") {
+  throw new Error("Compiled sanitizer failed");
 }
 `,
   );
@@ -159,10 +162,12 @@ if (decode(encode(escape("<x>"))) !== "&lt;x&gt;") {
   );
   writeFileSync(
     join(consumerDir, "types-check.ts"),
-    `import { sanitize, type SanitizerOptions } from "unsane";
+    `import { createSanitizer, sanitize, type CompiledSanitizer, type SanitizerOptions } from "unsane";
 
 const options: SanitizerOptions = { allowedTags: ["a"] };
 const output: string = sanitize("<a>ok</a>", options);
+const compiled: CompiledSanitizer = createSanitizer(options);
+compiled(output);
 void output;
 `,
   );

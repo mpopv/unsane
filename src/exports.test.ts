@@ -1,10 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { sanitize, escape, encode, decode } from "./index.js";
-import type { SanitizerOptions, Sanitizer } from "./index.js";
+import { createSanitizer, sanitize, escape, encode, decode } from "./index.js";
+import type {
+  CompiledSanitizer,
+  SanitizerOptions,
+  Sanitizer,
+} from "./index.js";
 
 describe("Library exports", () => {
   it("should export all required functions", () => {
     expect(typeof sanitize).toBe("function");
+    expect(typeof createSanitizer).toBe("function");
     expect(typeof escape).toBe("function");
     expect(typeof encode).toBe("function");
     expect(typeof decode).toBe("function");
@@ -46,5 +51,12 @@ describe("Library exports", () => {
       },
     };
     expect(customSanitizer.sanitize("<div>test</div>")).toBeTruthy();
+  });
+
+  it("should export the compiled sanitizer type", () => {
+    const compiled: CompiledSanitizer = createSanitizer({
+      allowedTags: ["p"],
+    });
+    expect(compiled("<div>drop</div><p>keep</p>")).toBe("drop<p>keep</p>");
   });
 });

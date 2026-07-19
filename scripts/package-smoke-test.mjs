@@ -89,7 +89,7 @@ function assertTypes(cwd) {
 
   writeFileSync(
     join(cwd, "types-smoke.ts"),
-    `import { sanitize, escape, encode, decode, type Sanitizer, type SanitizerOptions } from "unsane";
+    `import { createSanitizer, sanitize, escape, encode, decode, type CompiledSanitizer, type Sanitizer, type SanitizerOptions } from "unsane";
 
 const options: SanitizerOptions = {
   allowedTags: ["a"],
@@ -105,8 +105,10 @@ const escaped: string = escape(sanitized);
 const encoded: string = encode(escaped);
 const decoded: string = decode(encoded);
 const sanitizer: Sanitizer = { sanitize };
+const compiled: CompiledSanitizer = createSanitizer(options);
 
 sanitizer.sanitize(decoded, options);
+compiled(decoded);
 `,
   );
 
@@ -193,7 +195,7 @@ try {
   const esmScript = join(consumerDir, "esm-smoke.mjs");
   writeFileSync(
     esmScript,
-    `import { sanitize, escape, encode, decode } from "unsane";
+    `import { createSanitizer, sanitize, escape, encode, decode } from "unsane";
 
 if (sanitize('<div onclick="alert(1)">ok</div>') !== "<div>ok</div>") {
   throw new Error("ESM sanitize failed");
@@ -203,6 +205,9 @@ if (escape('<x>') !== "&lt;x&gt;") {
 }
 if (decode(encode("<x>")) !== "<x>") {
   throw new Error("ESM encode/decode failed");
+}
+if (createSanitizer({ allowedTags: ["p"] })("<div>drop</div><p>keep</p>") !== "drop<p>keep</p>") {
+  throw new Error("Compiled sanitizer failed");
 }
 `,
   );

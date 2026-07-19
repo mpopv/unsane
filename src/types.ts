@@ -32,3 +32,6 @@ export interface Sanitizer {
    */
   sanitize: (html: string, options?: SanitizerOptions) => string;
 }
+
+/** A sanitizer whose policy has already been normalized and compiled. */
+export type CompiledSanitizer = (html: string) => string;
