@@ -1,0 +1,66 @@
+[
+  {
+    "name": "nested foreign content breakout",
+    "input": "<math><mtext><table><mglyph><style><!--</style><img title=\"--><img src=x onerror=alert(1)>\">"
+  },
+  {
+    "name": "svg foreign object",
+    "input": "<svg><foreignObject><p><img src=x onerror=alert(1)></p></foreignObject></svg><p>safe</p>"
+  },
+  {
+    "name": "noscript attribute terminator",
+    "input": "<noscript><p title=\"</noscript><img src=x onerror=alert(1)>\">x</p></noscript>"
+  },
+  {
+    "name": "malformed nested script",
+    "input": "<div><scr<script>ipt>alert(1)</script><span>safe</span></div>"
+  },
+  {
+    "name": "numeric newline protocol",
+    "input": "<a href=\"java&#10;script:alert(1)\">link</a>"
+  },
+  {
+    "name": "named colon protocol",
+    "input": "<a href=\"javascript&colon;alert(1)\">link</a>"
+  },
+  {
+    "name": "nested entity protocol",
+    "input": "<a href=\"javascript&amp;colon;alert(1)\">link</a>"
+  },
+  {
+    "name": "null protocol",
+    "input": "<a href=\"java\u0000script:alert(1)\">link</a>"
+  },
+  {
+    "name": "attribute quote breakout",
+    "input": "<img alt=\"safe&quot; onerror=&quot;alert(1)\" src=\"/safe.png\">"
+  },
+  {
+    "name": "unterminated comment",
+    "input": "<!--<script>alert(1)</script><p>safe</p>"
+  },
+  {
+    "name": "unclosed raw text",
+    "input": "<textarea><img src=x onerror=alert(1)><p>safe</p>"
+  },
+  {
+    "name": "table namespace transition",
+    "input": "<table><tr><td><svg><script>alert(1)</script></svg><p>safe</p></td></tr></table>"
+  },
+  {
+    "name": "duplicate dangerous attribute",
+    "input": "<a href=\"/safe\" href=\"javascript:alert(1)\" onclick=\"alert(1)\">link</a>"
+  },
+  {
+    "name": "protocol relative URL",
+    "input": "<img src=\"//attacker.example/track.png\">"
+  },
+  {
+    "name": "entity introduced control",
+    "input": "<p>before&#12;after</p>"
+  },
+  {
+    "name": "double less than",
+    "input": "<<<script>alert(1)</script><p>safe</p>"
+  }
+]

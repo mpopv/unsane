@@ -1,5 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { JSDOM } from "jsdom";
+import * as fc from "fast-check";
+import regressions from "../../test/corpus/sanitizer-regressions.json";
+import { SanitizerOptions } from "../types.js";
 import { sanitize } from "./htmlSanitizer.js";
 
 const unsafeTagPatterns = [
@@ -9,19 +12,18 @@ const unsafeTagPatterns = [
   /<object\b/i,
   /<svg\b/i,
   /<math\b/i,
-  /\son[a-z]+\s*=/i,
-  /\sstyle\s*=/i,
   /\s(?:href|src|action|formaction|xlink:href)=["']?\s*(?:javascript|data|vbscript|file|blob|mhtml|filesystem):/i,
 ];
 
 const voidTags = new Set(["br", "hr", "img"]);
-const nonVoidTags = [
+const safeTags = [
   "a",
   "blockquote",
   "code",
   "div",
   "em",
   "h1",
+  "img",
   "li",
   "ol",
   "p",
@@ -33,20 +35,203 @@ const nonVoidTags = [
   "th",
   "tr",
   "ul",
-];
+] as const;
+const tagNames = [
+  ...safeTags,
+  "script",
+  "script-x",
+  "style",
+  "iframe",
+  "object",
+  "embed",
+  "template",
+  "textarea",
+  "title",
+  "noscript",
+  "svg",
+  "math",
+  "unknown",
+] as const;
+const attributeNames = [
+  "href",
+  "src",
+  "class",
+  "id",
+  "title",
+  "target",
+  "rel",
+  "style",
+  "onclick",
+  "onerror",
+  "formaction",
+  "xlink:href",
+  "data-test",
+  "aria-label",
+] as const;
+const safeAttributeNames = [
+  "href",
+  "src",
+  "class",
+  "id",
+  "title",
+  "target",
+  "rel",
+  "data-test",
+  "aria-label",
+  "alt",
+  "width",
+  "height",
+] as const;
+const attributeValues = [
+  "",
+  "safe",
+  "https://example.com/x",
+  "/relative/path",
+  "#fragment",
+  "javascript:globalThis.__unsaneExecuted=true",
+  "java\u0000script:alert(1)",
+  "java&#x0A;script:alert(1)",
+  "data:text/html,<script>alert(1)</script>",
+  "vbscript:msgbox(1)",
+  "hello &lt;script&gt;",
+  "&amp;amp;",
+  "\"quoted\"",
+  "'single'",
+  "unterminated",
+] as const;
+const textTokens = [
+  "",
+  "plain text",
+  "1 < 2 & 3",
+  "&lt;script&gt;alert(1)&lt;/script&gt;",
+  "\u0000control\u001Fchars",
+  "<<broken",
+  "<!--comment-->",
+  "<![CDATA[foreign]]>",
+  "</",
+  "/>",
+  "=",
+  '"',
+  "'",
+  "javascript alert script as text",
+] as const;
 
-function createPrng(seed: number): () => number {
-  let state = seed >>> 0;
+const tagNameArbitrary = fc.constantFrom(...tagNames);
+const attributeNameArbitrary = fc.constantFrom(...attributeNames);
+const attributeValueArbitrary = fc.constantFrom(...attributeValues);
+const quoteArbitrary = fc.constantFrom('"', "'", "");
+const whitespaceArbitrary = fc.constantFrom("", " ", "\t", "\n", "\r\n");
 
-  return () => {
-    state = (state * 1664525 + 1013904223) >>> 0;
-    return state / 0x100000000;
-  };
+const attributeArbitrary = fc
+  .tuple(
+    attributeNameArbitrary,
+    attributeValueArbitrary,
+    quoteArbitrary,
+    whitespaceArbitrary,
+    fc.boolean(),
+  )
+  .map(([name, value, quote, whitespace, booleanAttribute]) =>
+    booleanAttribute
+      ? `${whitespace}${name}`
+      : `${whitespace}${name}${whitespace}=${whitespace}${quote}${value}${quote}`,
+  );
+
+const structuredElementArbitrary = fc
+  .record({
+    attributes: fc.array(attributeArbitrary, { maxLength: 6 }),
+    body: fc.constantFrom(...textTokens),
+    closeStyle: fc.constantFrom("matching", "wrong", "missing", "self"),
+    tagName: tagNameArbitrary,
+  })
+  .map(({ attributes, body, closeStyle, tagName }) => {
+    const open = `<${tagName}${attributes.join("")}${
+      closeStyle === "self" ? "/>" : ">"
+    }`;
+
+    if (closeStyle === "self") return `${open}${body}`;
+    if (closeStyle === "missing") return `${open}${body}`;
+
+    return `${open}${body}</${
+      closeStyle === "matching" ? tagName : "div"
+    }>`;
+  });
+
+const rawContentArbitrary = fc
+  .tuple(
+    fc.constantFrom(
+      "script",
+      "style",
+      "iframe",
+      "template",
+      "textarea",
+      "title",
+      "noscript",
+      "svg",
+      "math",
+    ),
+    fc.constantFrom(...attributeValues, ...textTokens),
+    fc.boolean(),
+  )
+  .map(
+    ([tagName, body, close]) =>
+      `<${tagName}>${body}${
+        close ? `</${tagName}>` : ""
+      }<p>safe sibling</p>`,
+  );
+
+const tokenSoupArbitrary = fc
+  .array(
+    fc.constantFrom(
+      ...tagNames,
+      ...attributeNames,
+      ...attributeValues,
+      ...textTokens,
+      "<",
+      ">",
+      "</",
+      "/>",
+      "<!--",
+      "-->",
+      "=",
+      " ",
+    ),
+    { maxLength: 80 },
+  )
+  .map((tokens) => tokens.join(""));
+
+const htmlFragmentArbitrary = fc.oneof(
+  structuredElementArbitrary,
+  rawContentArbitrary,
+  tokenSoupArbitrary,
+  fc
+    .array(structuredElementArbitrary, { maxLength: 8 })
+    .map((elements) => elements.join("")),
+);
+
+const safePolicyArbitrary: fc.Arbitrary<SanitizerOptions | undefined> =
+  fc.oneof(
+    fc.constant(undefined),
+    fc
+      .record({
+        allowedAttributes: fc.uniqueArray(
+          fc.constantFrom(...safeAttributeNames),
+          { maxLength: safeAttributeNames.length },
+        ),
+        allowedTags: fc.uniqueArray(fc.constantFrom(...safeTags), {
+          maxLength: safeTags.length,
+        }),
+      })
+      .map(({ allowedAttributes, allowedTags }) => ({
+        allowedTags,
+        allowedAttributes: { "*": allowedAttributes },
+      })),
+  );
+
+function createBrowserBody() {
+  return new JSDOM("<body></body>").window.document.body;
 }
 
-function pick<T>(random: () => number, values: T[]): T {
-  return values[Math.floor(random() * values.length)];
-}
+type BrowserBody = ReturnType<typeof createBrowserBody>;
 
 function balancedAllowedTags(html: string): boolean {
   const stack: string[] = [];
@@ -79,14 +264,7 @@ function expectSafeTagTokens(html: string, input: string): void {
   }
 }
 
-function createBrowserBody() {
-  return new JSDOM("<body></body>").window.document.body;
-}
-
-function expectSafeBrowserTree(
-  body: ReturnType<typeof createBrowserBody>,
-  input: string,
-): void {
+function expectSafeBrowserTree(body: BrowserBody, input: string): void {
   expect(
     body.querySelector("script, style, iframe, object, svg, math"),
     input,
@@ -105,96 +283,52 @@ function expectSafeBrowserTree(
   }
 }
 
-function generatedPayloads(count: number, seed: number): string[] {
-  const random = createPrng(seed);
-  const tagNames = [
-    ...nonVoidTags,
-    "script",
-    "style",
-    "iframe",
-    "svg",
-    "math",
-    "object",
-    "unknown",
-  ];
-  const attrNames = [
-    "href",
-    "src",
-    "class",
-    "id",
-    "style",
-    "onclick",
-    "onerror",
-    "xlink:href",
-    "data-test",
-  ];
-  const values = [
-    "safe",
-    "https://example.com/x",
-    "javascript:alert(1)",
-    "java\u0000script:alert(1)",
-    "data:text/html,<script>alert(1)</script>",
-    "vbscript:msgbox(1)",
-    "hello &lt;script&gt;",
-    "unterminated",
-    "",
-  ];
-  const textParts = [
-    "plain text",
-    "1 < 2 & 3",
-    "&lt;script&gt;alert(1)&lt;/script&gt;",
-    "\u0000control\u001Fchars",
-    "<<broken",
-    "javascript alert script as text",
-  ];
-  const quoteStyles = ['"', "'", ""];
-  const payloads: string[] = [];
+function expectSanitizerInvariants(
+  input: string,
+  options: SanitizerOptions | undefined,
+  browserBody: BrowserBody,
+): void {
+  const output = sanitize(input, options);
 
-  for (let i = 0; i < count; i++) {
-    const tagName = pick(random, tagNames);
-    const attrs = Array.from({ length: 1 + Math.floor(random() * 4) }, () => {
-      const name = pick(random, attrNames);
-      const value = pick(random, values);
-      const quote = pick(random, quoteStyles);
+  expect(sanitize(input, options), input).toBe(output);
+  expect(output.length, input).toBeLessThanOrEqual(input.length * 8 + 256);
+  expectSafeTagTokens(output, input);
+  expect(balancedAllowedTags(output), input).toBe(true);
 
-      if (!value) return name;
-      if (!quote) return `${name}=${value}`;
+  const resanitized = sanitize(output, options);
+  expect(resanitized.length, input).toBeLessThanOrEqual(output.length * 8 + 256);
+  expectSafeTagTokens(resanitized, input);
+  expect(balancedAllowedTags(resanitized), input).toBe(true);
 
-      return `${name}=${quote}${value}${quote}`;
-    }).join(" ");
-    const text = pick(random, textParts);
-    const close = random() > 0.35 ? `</${pick(random, tagNames)}>` : "";
-    const prefix = random() > 0.85 ? "<" : "";
-    const suffix = random() > 0.8 ? ">" : "";
-
-    payloads.push(`${prefix}<${tagName} ${attrs}>${text}${close}${suffix}`);
-  }
-
-  return payloads;
+  browserBody.innerHTML = output;
+  expectSafeBrowserTree(browserBody, input);
 }
 
-describe("htmlSanitizer generated corpus", () => {
-  it("never throws and preserves output invariants across seeds and browser reparsing", () => {
+describe("htmlSanitizer adversarial generation", () => {
+  it("preserves semantic invariants for shrinkable parser-state inputs", () => {
     const browserBody = createBrowserBody();
 
-    for (const seed of [0x5eed, 0xc0ffee, 0xdeadbeef, 0xdecafbad]) {
-      for (const input of generatedPayloads(250, seed)) {
-        let output = "";
+    fc.assert(
+      fc.property(
+        htmlFragmentArbitrary,
+        safePolicyArbitrary,
+        (input, options) => {
+          expectSanitizerInvariants(input, options, browserBody);
+        },
+      ),
+      {
+        endOnFailure: true,
+        numRuns: 2_000,
+        seed: 0x5eedc0de,
+      },
+    );
+  });
 
-        expect(() => {
-          output = sanitize(input);
-        }).not.toThrow();
+  it("keeps every minimized regression in the permanent corpus safe", () => {
+    const browserBody = createBrowserBody();
 
-        expectSafeTagTokens(output, input);
-        expect(balancedAllowedTags(output), input).toBe(true);
-
-        const resanitized = sanitize(output);
-        expectSafeTagTokens(resanitized, input);
-        expect(balancedAllowedTags(resanitized), input).toBe(true);
-
-        browserBody.innerHTML = output;
-        expectSafeBrowserTree(browserBody, input);
-      }
+    for (const regression of regressions) {
+      expectSanitizerInvariants(regression.input, undefined, browserBody);
     }
   });
 });

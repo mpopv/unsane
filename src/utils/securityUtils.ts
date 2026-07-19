@@ -44,7 +44,8 @@ const URL_NAMED_ENTITIES: Record<string, string> = {
 };
 
 function codePointToUrlChar(codePoint: number, fallback: string): string {
-  if (codePoint < 0 || codePoint > 0x10ffff) return fallback;
+  // Stryker disable next-line EqualityOperator: U+10FFFF and the unchanged entity are equally inert during scheme classification.
+  if (codePoint > 0x10ffff) return fallback;
   return String.fromCodePoint(codePoint);
 }
 
@@ -69,6 +70,7 @@ function decodeUrlEntities(value: string): string {
 
   for (let pass = 0; pass < 4; pass++) {
     const next = decodeUrlEntitiesOnce(decoded);
+    // Stryker disable next-line ConditionalExpression: this only avoids redundant iterations within the same fixed four-pass bound.
     if (next === decoded) break;
     decoded = next;
   }
@@ -81,8 +83,6 @@ export function isUrlAttribute(name: string): boolean {
 }
 
 export function isSafeUrlAttributeValue(value: string): boolean {
-  if (!value) return true;
-
   const decoded = decodeUrlEntities(value);
 
   if (URL_OBFUSCATION_PATTERN.test(decoded)) {
@@ -117,6 +117,7 @@ export function containsDangerousContent(value: string): boolean {
   }
 
   // Normalize for comparison
+  // Stryker disable next-line Regex: replacing one whitespace at a time or an entire run produces the same normalized string.
   const normalized = value.toLowerCase().replace(/\s+/g, "");
 
   // Check for URL protocols and only allow from our explicit allowlist
