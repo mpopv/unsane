@@ -119,6 +119,98 @@ describe("htmlSanitizer", () => {
     );
   });
 
+  it("should apply the audited element capability model", () => {
+    const input =
+      '<html><head>head</head><body><form><x-widget data-state="live">custom</x-widget>' +
+      '<widget data-state="ready">inert</widget></form></body></html>';
+    const output = sanitize(input, {
+      allowedTags: [
+        "html",
+        "head",
+        "body",
+        "form",
+        "x-widget",
+        "widget",
+      ],
+      allowedAttributes: { "*": ["data-state"] },
+    });
+
+    expect(output).toBe(
+      'headcustom<widget data-state="ready">inert</widget>',
+    );
+  });
+
+  it("should classify and validate every supported single-URL attribute", () => {
+    const input =
+      '<blockquote cite="javascript:alert(1)">quote</blockquote>' +
+      '<img src="/image.png" longdesc="https://example.com/description" usemap="#map">' +
+      '<table background="data:text/html,bad"><tr><td>cell</td></tr></table>';
+    const output = sanitize(input, {
+      allowedTags: ["blockquote", "img", "table", "tr", "td"],
+      allowedAttributes: {
+        "*": ["background", "cite", "longdesc", "src", "usemap"],
+      },
+    });
+
+    expect(output).toBe(
+      '<blockquote>quote</blockquote><img src="/image.png" longdesc="https://example.com/description" usemap="#map" /><table><tr><td>cell</td></tr></table>',
+    );
+  });
+
+  it("should fail closed for specialized attribute grammars", () => {
+    const attributes = [
+      "accesskey",
+      "attributionsrc",
+      "autofocus",
+      "commandfor",
+      "form",
+      "formaction",
+      "formenctype",
+      "formmethod",
+      "formnovalidate",
+      "formtarget",
+      "http-equiv",
+      "is",
+      "nonce",
+      "ping",
+      "popover",
+      "popovertarget",
+      "popovertargetaction",
+      "slot",
+      "srcdoc",
+      "srcset",
+      "imagesrcset",
+      "tabindex",
+      "xlink:href",
+      "xmlns",
+    ];
+    const input = `<input type="text" ${attributes
+      .map((name) => `${name}="active"`)
+      .join(" ")}>`;
+
+    expect(
+      sanitize(input, {
+        allowedTags: ["input"],
+        allowedAttributes: { input: ["type", ...attributes] },
+      }),
+    ).toBe('<input type="text" />');
+  });
+
+  it("should constrain browsing-context targets and remove opener tokens", () => {
+    expect(
+      sanitize(
+        '<a href="/safe" target="_TOP">top</a>' +
+          '<a href="/safe" target="named">named</a>' +
+          '<a href="/safe" target=" _SELF ">self</a>' +
+          '<a href="/safe" target="_blank" rel="opener nofollow">blank</a>',
+      ),
+    ).toBe(
+      '<a href="/safe">top</a><a href="/safe">named</a>' +
+        '<a href="/safe" target="_self">self</a>' +
+        '<a href="/safe" target="_blank" rel="nofollow noopener noreferrer">blank</a>',
+    );
+  });
+
   it("should safely handle property-like tag names in allowlists", () => {
     expect(
       sanitize("<constructor>safe</constructor>", {

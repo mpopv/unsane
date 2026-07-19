@@ -85,11 +85,19 @@ Available options:
   Defaults to `1_000_000` characters. Set to `Infinity` only for trusted,
   already-bounded inputs.
 
-Custom allowlists cannot re-enable document-active elements (`base`, `link`, or
-`meta`) or active attributes that require a separate parser (`is`, `ping`,
-`srcdoc`, `srcset`, and `imagesrcset`). Unsane strips these capabilities even
-when explicitly listed. Inert custom elements, `data-*`, and `aria-*`
-attributes remain supported.
+Custom allowlists use a fixed capability model. Unsane strips document-state
+elements (`html`, `head`, `body`, `base`, `link`, `meta`, and `form`),
+upgradeable custom-element names containing `-`, event/CSS attributes,
+URL-list attributes, form-association attributes, browsing-state attributes,
+namespace transitions, and other specialized active grammars even when they
+are explicitly listed. Unknown non-upgradeable elements, `data-*`, `aria-*`,
+and other explicitly allowed inert attributes remain supported.
+
+Single-URL attributes (`background`, `cite`, `href`, `longdesc`, `poster`,
+`src`, and `usemap`) all use the fixed protocol validator. Browsing-context
+targets are limited to `_self` and `_blank`; `_blank` removes `opener` and adds
+`noopener noreferrer`. Multi-URL and embedded-document grammars remain denied
+instead of receiving incomplete parsing.
 
 URL-bearing attributes use a fixed conservative protocol allowlist:
 `http:`, `https:`, `mailto:`, `tel:`, `ftp:`, and `sms:`. Custom protocol
