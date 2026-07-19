@@ -60,8 +60,10 @@ const SKIP_CONTENT_PATTERN =
 
 // eslint-disable-next-line no-control-regex
 const UNSAFE_ATTRIBUTE_CHARS_PATTERN = /[\0-\x1f\x7f-\x9f\u200c-\u200f\ufeff]/;
-const DANGEROUS_ATTRIBUTE_PATTERN =
-  /^(on|style|(form)?action|xlink:href|srcdoc|(image)?srcset|ping|is$)/;
+const UNSUPPORTED_ELEMENT_CAPABILITY_PATTERN =
+  /^(base|body|form|head|html|link|meta)$/;
+const UNSUPPORTED_ATTRIBUTE_CAPABILITY_PATTERN =
+  /^(on|style$|accesskey$|attributionsrc$|autofocus$|commandfor$|form(?:$|action$|enctype$|method$|novalidate$|target$)|http-equiv$|is$|nonce$|ping$|popover(?:$|target$|targetaction$)|slot$|srcdoc$|(image)?srcset$|tabindex$|xlink:|xmlns(?::|$))/;
 
 function invalid(name: string): never {
   throw new TypeError(`Invalid ${name}.`);
@@ -208,11 +210,16 @@ function isBlankTarget(value: string): boolean {
   return value.trim().toLowerCase() === "_blank";
 }
 
+function safeTarget(value: string): string | undefined {
+  const target = value.trim().toLowerCase();
+  return target === "_blank" || target === "_self" ? target : undefined;
+}
+
 function mergeSafeRel(value: string): string {
   const relTokens = value
     .split(/\s+/)
     .map((token) => token.toLowerCase())
-    .filter(Boolean);
+    .filter((token) => token && token !== "opener");
 
   for (const requiredToken of ["noopener", "noreferrer"]) {
     if (!relTokens.includes(requiredToken)) {
@@ -253,7 +260,7 @@ function processAttributes(
     // Skip the attribute if it's not in the allowlist or it's a dangerous attribute pattern
     if (
       (!tagAllowedAttrs?.has(name) && !globalAttrs?.has(name)) ||
-      DANGEROUS_ATTRIBUTE_PATTERN.test(name)
+      UNSUPPORTED_ATTRIBUTE_CAPABILITY_PATTERN.test(name)
     ) {
       continue;
     }
@@ -272,9 +279,11 @@ function processAttributes(
     }
     emittedAttrs.add(name);
 
-    if (name === "target" && hasValue && isBlankTarget(value)) {
-      value = "_blank";
-      hasBlankTarget = true;
+    if (name === "target" && hasValue) {
+      const target = safeTarget(value);
+      if (!target) continue;
+      value = target;
+      hasBlankTarget = isBlankTarget(target);
     }
 
     outputAttrs.push([name, value, hasValue]);
@@ -395,7 +404,11 @@ function sanitizeWithOptions(
       return;
     }
 
-    if (mergedOptions.allowedTags.has(tagName)) {
+    if (
+      mergedOptions.allowedTags.has(tagName) &&
+      !UNSUPPORTED_ELEMENT_CAPABILITY_PATTERN.test(tagName) &&
+      !tagName.includes("-")
+    ) {
       // Special handling for HTML structure - div inside p is invalid HTML
       if (tagName === "div") {
         const pIndex = openTagIndex("p");

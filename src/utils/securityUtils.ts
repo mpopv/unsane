@@ -8,7 +8,7 @@ export const ALLOWED_PROTOCOLS = new Set(
 );
 
 export const URL_ATTRIBUTES = new Set(
-  "href src cite poster action formaction xlink:href".split(" "),
+  "background cite href longdesc poster src usemap".split(" "),
 );
 
 // List of dangerous content patterns
