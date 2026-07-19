@@ -236,6 +236,8 @@ function processAttributes(
 
   // Process each attribute
   for (let [name, value, hasValue] of attrs) {
+    value = decode(value);
+
     // Skip the attribute if it's not in the allowlist or it's a dangerous attribute pattern
     if (
       (!tagAllowedAttrs?.has(name) && !globalAttrs?.has(name)) ||
