@@ -125,14 +125,14 @@ This reads HTML from `stdin` and prints the sanitized result to `stdout`.
 
 ## Runtime Size
 
-This library is designed to be lightweight while providing comprehensive HTML sanitization:
+This library is designed to be lightweight while providing comprehensive HTML sanitization. The size gate builds the actual tree-shaken consumer entry point and checks the package that npm would publish:
 
-| Metric                                 | Size        |
-| -------------------------------------- | ----------- |
-| Runtime import closure                 | ~30.13 KB   |
-| Runtime import closure gzipped         | ~7.62 KB    |
-| Minified runtime closure               | ~8.93 KB    |
-| **Minified + gzipped runtime closure** | **~3.5 KB** |
+| Metric                       | Size              |
+| ---------------------------- | ----------------- |
+| Minified consumer ESM bundle | ~6.82 KB          |
+| Minified + gzip              | ~2.98 KB          |
+| Minified + Brotli            | ~2.73 KB          |
+| npm tarball / unpacked size  | ~15.72 / 82.99 KB |
 
 You can check the package size yourself with:
 
@@ -140,8 +140,15 @@ You can check the package size yourself with:
 npm run analyze-size
 ```
 
-This command enforces conservative runtime-size budgets in CI so accidental
-bundle growth fails before release.
+This command enforces conservative bundle and published-package budgets in CI
+so accidental growth fails before release. Runtime throughput can be measured
+against representative plain-text, safe-fragment, attribute-heavy, raw-content,
+and hostile-nesting workloads with:
+
+```bash
+npm run build
+npm run benchmark
+```
 
 ## Threat Model
 

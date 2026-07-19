@@ -1,217 +1,157 @@
 #!/usr/bin/env tsx
-import fs from "fs";
-import zlib from "zlib";
-import { promisify } from "util";
-import { execFileSync } from "child_process";
+import fs from "node:fs";
+import zlib from "node:zlib";
+import { execFileSync } from "node:child_process";
+import { promisify } from "node:util";
+import { build } from "esbuild";
 
-const readFile = promisify(fs.readFile);
 const gzip = promisify(zlib.gzip);
+const brotliCompress = promisify(zlib.brotliCompress);
 
-// ESM files loaded by the public package entry point.
-const runtimeImportPaths = [
-  "dist/index.js",
-  "dist/sanitizer/htmlSanitizer.js",
-  "dist/sanitizer/config.js",
-  "dist/utils/htmlEntities.js",
-  "dist/utils/securityUtils.js",
-];
-
-const runtimeSizeBudgets = {
-  sourceSize: 32 * 1024,
-  sourceGzipSize: 8 * 1024,
-  minifiedSize: 9 * 1024,
-  minifiedGzipSize: 4 * 1024,
+const budgets = {
+  bundle: {
+    minified: 10 * 1024,
+    gzip: 4 * 1024,
+    brotli: 3.5 * 1024,
+  },
+  package: {
+    packed: 20 * 1024,
+    unpacked: 100 * 1024,
+    files: 32,
+  },
 };
 
-interface FileDetail {
-  file: string;
-  sourceSize: number;
-  sourceGzipSize: number;
-  minifiedSize: number;
-  minifiedGzipSize: number;
+interface PackageStats {
+  size: number;
+  unpackedSize: number;
+  entryCount: number;
 }
 
-interface SizeSummary {
-  sourceSize: number;
-  sourceGzipSize: number;
-  minifiedSize: number;
-  minifiedGzipSize: number;
+interface BundleStats {
+  minified: number;
+  gzip: number;
+  brotli: number;
 }
 
-function formatBytes(bytes: number, decimals = 2): string {
-  if (bytes === 0) return "0 Bytes";
-
-  const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  return `${(bytes / 1024).toFixed(2)} KB`;
 }
 
-function ensureBuildArtifacts(paths: string[]): void {
-  const missingFiles = paths.filter((file) => !fs.existsSync(file));
-
-  if (missingFiles.length === 0) return;
+function ensureBuild(): void {
+  if (fs.existsSync("dist/index.js")) return;
 
   console.log("Build artifacts missing. Running npm run build first.\n");
   execFileSync("npm", ["run", "build"], { stdio: "inherit" });
 }
 
-function enforceSizeBudgets(summary: SizeSummary): void {
-  const failures = Object.entries(runtimeSizeBudgets).filter(
-    ([metric, budget]) => summary[metric as keyof SizeSummary] > budget,
+async function measureConsumerBundle(): Promise<BundleStats> {
+  const result = await build({
+    entryPoints: ["dist/index.js"],
+    bundle: true,
+    format: "esm",
+    legalComments: "none",
+    logLevel: "silent",
+    minify: true,
+    platform: "neutral",
+    target: "es2022",
+    treeShaking: true,
+    write: false,
+  });
+  const contents = result.outputFiles[0].contents;
+
+  return {
+    minified: contents.byteLength,
+    gzip: (await gzip(contents)).byteLength,
+    brotli: (await brotliCompress(contents)).byteLength,
+  };
+}
+
+function measurePackage(): PackageStats {
+  const output = execFileSync(
+    "npm",
+    ["pack", "--dry-run", "--json", "--ignore-scripts"],
+    { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+  );
+  const [stats] = JSON.parse(output) as PackageStats[];
+
+  if (!stats) throw new Error("npm pack did not return package statistics");
+  return stats;
+}
+
+function enforceBudget(
+  failures: string[],
+  label: string,
+  actual: number,
+  budget: number,
+  format: (value: number) => string = formatBytes,
+): void {
+  if (actual > budget) {
+    failures.push(`${label}: ${format(actual)} > ${format(budget)}`);
+  }
+}
+
+async function main(): Promise<void> {
+  ensureBuild();
+
+  const bundle = await measureConsumerBundle();
+  const packageStats = measurePackage();
+
+  console.log("Consumer ESM bundle:");
+  console.log(`  Minified: ${formatBytes(bundle.minified)}`);
+  console.log(`  Minified + gzip: ${formatBytes(bundle.gzip)}`);
+  console.log(`  Minified + Brotli: ${formatBytes(bundle.brotli)}\n`);
+
+  console.log("Published package dry run:");
+  console.log(`  Tarball: ${formatBytes(packageStats.size)}`);
+  console.log(`  Unpacked: ${formatBytes(packageStats.unpackedSize)}`);
+  console.log(`  Files: ${packageStats.entryCount}\n`);
+
+  const failures: string[] = [];
+  enforceBudget(
+    failures,
+    "bundle minified",
+    bundle.minified,
+    budgets.bundle.minified,
+  );
+  enforceBudget(failures, "bundle gzip", bundle.gzip, budgets.bundle.gzip);
+  enforceBudget(
+    failures,
+    "bundle Brotli",
+    bundle.brotli,
+    budgets.bundle.brotli,
+  );
+  enforceBudget(
+    failures,
+    "package tarball",
+    packageStats.size,
+    budgets.package.packed,
+  );
+  enforceBudget(
+    failures,
+    "package unpacked",
+    packageStats.unpackedSize,
+    budgets.package.unpacked,
+  );
+  enforceBudget(
+    failures,
+    "package files",
+    packageStats.entryCount,
+    budgets.package.files,
+    String,
   );
 
-  if (failures.length === 0) {
-    console.log("Size budgets: passed");
+  if (failures.length > 0) {
+    for (const failure of failures)
+      console.error(`Size budget exceeded: ${failure}`);
+    process.exitCode = 1;
     return;
   }
 
-  for (const [metric, budget] of failures) {
-    const actual = summary[metric as keyof SizeSummary];
-    console.error(
-      `Size budget exceeded for ${metric}: ${formatBytes(
-        actual,
-      )} > ${formatBytes(budget)}`,
-    );
-  }
-
-  process.exit(1);
+  console.log("Real bundle and package size budgets: passed");
 }
 
-async function minifyCode(
-  filePath: string,
-): Promise<{ minified: string; size: number; gzipSize: number }> {
-  const tempOutputPath = `${filePath}.min.js`;
-
-  try {
-    execFileSync(
-      "npx",
-      [
-        "terser",
-        filePath,
-        "--compress",
-        "--mangle",
-        "--output",
-        tempOutputPath,
-      ],
-      { stdio: "pipe" },
-    );
-
-    const minified = await readFile(tempOutputPath, "utf8");
-    const size = Buffer.byteLength(minified);
-    const gzipContent = await gzip(Buffer.from(minified));
-
-    return { minified, size, gzipSize: gzipContent.length };
-  } finally {
-    if (fs.existsSync(tempOutputPath)) {
-      fs.unlinkSync(tempOutputPath);
-    }
-  }
-}
-
-async function analyzeRuntimeImports(): Promise<void> {
-  try {
-    ensureBuildArtifacts(runtimeImportPaths);
-
-    const packageJsonContent = await readFile("package.json", "utf8");
-    const packageJson = JSON.parse(packageJsonContent);
-
-    console.log(
-      `\nAnalyzing runtime import sizes for: ${
-        packageJson.name || "unsane"
-      } v${packageJson.version || "development"}\n`,
-    );
-
-    const fileDetails: FileDetail[] = [];
-    const sourceParts: string[] = [];
-    const minifiedParts: string[] = [];
-
-    for (const file of runtimeImportPaths) {
-      const source = await readFile(file, "utf8");
-      const sourceSize = Buffer.byteLength(source);
-      const sourceGzipSize = (await gzip(Buffer.from(source))).length;
-      const {
-        minified,
-        size: minifiedSize,
-        gzipSize: minifiedGzipSize,
-      } = await minifyCode(file);
-
-      sourceParts.push(source);
-      minifiedParts.push(minified);
-      fileDetails.push({
-        file,
-        sourceSize,
-        sourceGzipSize,
-        minifiedSize,
-        minifiedGzipSize,
-      });
-    }
-
-    fileDetails.sort((a, b) => b.sourceSize - a.sourceSize);
-
-    console.log("Runtime Import Files:");
-    console.log(
-      "-------------------------------------------------------------------------------",
-    );
-    console.log(
-      "  File                             | Source   | Gzip     | Minified | Min+Gzip",
-    );
-    console.log(
-      "-------------------------------------------------------------------------------",
-    );
-
-    for (const detail of fileDetails) {
-      console.log(
-        `  ${detail.file.padEnd(32)} | ${formatBytes(detail.sourceSize).padEnd(
-          8,
-        )} | ${formatBytes(detail.sourceGzipSize).padEnd(8)} | ${formatBytes(
-          detail.minifiedSize,
-        ).padEnd(8)} | ${formatBytes(detail.minifiedGzipSize)}`,
-      );
-    }
-
-    console.log(
-      "-------------------------------------------------------------------------------\n",
-    );
-
-    const combinedSource = sourceParts.join("\n");
-    const combinedMinified = minifiedParts.join("\n");
-    const sourceSize = Buffer.byteLength(combinedSource);
-    const sourceGzipSize = (await gzip(Buffer.from(combinedSource))).length;
-    const minifiedSize = Buffer.byteLength(combinedMinified);
-    const minifiedGzipSize = (await gzip(Buffer.from(combinedMinified))).length;
-
-    console.log("Size Summary:");
-    console.log(`  - Runtime import closure: ${formatBytes(sourceSize)}`);
-    console.log(
-      `  - Runtime import closure gzipped: ${formatBytes(sourceGzipSize)}`,
-    );
-    console.log(`  - Minified runtime closure: ${formatBytes(minifiedSize)}`);
-    console.log(
-      `  - Minified + gzipped runtime closure: ${formatBytes(minifiedGzipSize)}`,
-    );
-    console.log(
-      `  - Compression ratio: ${(
-        100 -
-        (minifiedGzipSize / sourceSize) * 100
-      ).toFixed(1)}%\n`,
-    );
-
-    enforceSizeBudgets({
-      sourceSize,
-      sourceGzipSize,
-      minifiedSize,
-      minifiedGzipSize,
-    });
-  } catch (error) {
-    console.error(
-      "Error analyzing runtime imports:",
-      error instanceof Error ? error.message : String(error),
-    );
-    process.exit(1);
-  }
-}
-
-analyzeRuntimeImports();
+main().catch((error: unknown) => {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exitCode = 1;
+});
