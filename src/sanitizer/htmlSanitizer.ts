@@ -62,6 +62,9 @@ const SKIP_CONTENT_PATTERN =
 const UNSAFE_ATTRIBUTE_CHARS_PATTERN = /[\0-\x1f\x7f-\x9f\u200c-\u200f\ufeff]/;
 const DANGEROUS_ATTRIBUTE_PATTERN =
   /^(on|style|(form)?action|xlink:href|srcdoc|(image)?srcset|ping|is$)/;
+const PARAGRAPH_CLOSING_START_PATTERN =
+  /^(address|article|aside|blockquote|div|dl|fieldset|footer|form|h[1-6]|header|hgroup|hr|main|menu|nav|ol|p|pre|section|table|ul)$/;
+const HEADING_PATTERN = /^h[1-6]$/;
 
 function invalid(name: string): never {
   throw new TypeError(`Invalid ${name}.`);
@@ -384,6 +387,46 @@ function sanitizeWithOptions(
     }
   }
 
+  function closeLatestOptionalElement(
+    tagNames: string[],
+    scopeBoundaries: string[] = [],
+  ): void {
+    let elementIndex = -1;
+    let boundaryIndex = -1;
+
+    for (const tagName of tagNames) {
+      elementIndex = Math.max(elementIndex, openTagIndex(tagName));
+    }
+    for (const tagName of scopeBoundaries) {
+      boundaryIndex = Math.max(boundaryIndex, openTagIndex(tagName));
+    }
+
+    if (elementIndex > boundaryIndex) closeStackFrom(elementIndex);
+  }
+
+  function repairTreeForStartTag(tagName: string): void {
+    if (PARAGRAPH_CLOSING_START_PATTERN.test(tagName)) {
+      closeLatestOptionalElement(["p"]);
+    }
+
+    if (HEADING_PATTERN.test(tagName)) {
+      closeLatestOptionalElement(["h1", "h2", "h3", "h4", "h5", "h6"]);
+    } else if (tagName === "li") {
+      closeLatestOptionalElement(["li"], ["menu", "ol", "ul"]);
+    } else if (tagName === "dt" || tagName === "dd") {
+      closeLatestOptionalElement(["dt", "dd"], ["dl"]);
+    } else if (/^(tbody|tfoot|thead)$/.test(tagName)) {
+      closeLatestOptionalElement(["tbody", "tfoot", "thead"], ["table"]);
+    } else if (tagName === "tr") {
+      closeLatestOptionalElement(
+        ["tr"],
+        ["table", "tbody", "tfoot", "thead"],
+      );
+    } else if (tagName === "td" || tagName === "th") {
+      closeLatestOptionalElement(["td", "th"], ["tr"]);
+    }
+  }
+
   // Function to handle a start tag
   function handleStartTag(
     tagName: string,
@@ -396,13 +439,7 @@ function sanitizeWithOptions(
     }
 
     if (mergedOptions.allowedTags.has(tagName)) {
-      // Special handling for HTML structure - div inside p is invalid HTML
-      if (tagName === "div") {
-        const pIndex = openTagIndex("p");
-        if (pIndex >= 0) {
-          closeStackFrom(pIndex);
-        }
-      }
+      repairTreeForStartTag(tagName);
 
       const attrsStr = processAttributes(
         attrs,
