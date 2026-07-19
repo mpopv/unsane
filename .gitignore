@@ -2,3 +2,5 @@ backups
 node_modules
 dist
 coverage
+.stryker-tmp
+reports

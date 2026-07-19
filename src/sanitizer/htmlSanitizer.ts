@@ -235,19 +235,17 @@ function processAttributes(
   let hasBlankTarget = false;
 
   // Process each attribute
-  for (const [name, value, hasValue] of attrs) {
-    const lowerName = name.toLowerCase();
-
+  for (let [name, value, hasValue] of attrs) {
     // Skip the attribute if it's not in the allowlist or it's a dangerous attribute pattern
     if (
-      (!tagAllowedAttrs?.has(lowerName) && !globalAttrs?.has(lowerName)) ||
-      DANGEROUS_ATTRIBUTE_PATTERN.test(lowerName)
+      (!tagAllowedAttrs?.has(name) && !globalAttrs?.has(name)) ||
+      DANGEROUS_ATTRIBUTE_PATTERN.test(name)
     ) {
       continue;
     }
 
     // Filter URL-bearing attributes with URL-specific protocol normalization.
-    if (isUrlAttribute(lowerName)) {
+    if (isUrlAttribute(name)) {
       if (!isSafeUrlAttributeValue(value)) {
         continue;
       }
@@ -255,21 +253,17 @@ function processAttributes(
       continue;
     }
 
-    if (emittedAttrs.has(lowerName)) {
+    if (emittedAttrs.has(name)) {
       continue;
     }
-    emittedAttrs.add(lowerName);
+    emittedAttrs.add(name);
 
-    const outputValue =
-      lowerName === "target" && hasValue && isBlankTarget(value)
-        ? "_blank"
-        : value;
-
-    if (lowerName === "target" && isBlankTarget(outputValue)) {
+    if (name === "target" && hasValue && isBlankTarget(value)) {
+      value = "_blank";
       hasBlankTarget = true;
     }
 
-    outputAttrs.push([lowerName, outputValue, hasValue]);
+    outputAttrs.push([name, value, hasValue]);
   }
 
   if (tagName === "a" && hasBlankTarget) {

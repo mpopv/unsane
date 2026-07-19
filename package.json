@@ -18,6 +18,7 @@
   "scripts": {
     "build": "npm run clean && tsc",
     "test": "vitest run --coverage",
+    "test:mutation": "stryker run",
     "lint": "eslint . --ext .ts,.js",
     "prepare": "npm run build",
     "clean": "rm -rf dist",
@@ -49,6 +50,8 @@
     "node": ">=22.0.0"
   },
   "devDependencies": {
+    "@stryker-mutator/core": "^9.6.1",
+    "@stryker-mutator/vitest-runner": "^9.6.1",
     "@types/node": "^25.8.0",
     "@typescript-eslint/eslint-plugin": "^8.59.3",
     "@typescript-eslint/parser": "^8.59.3",
@@ -59,6 +62,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-import-resolver-typescript": "^3.6.1",
     "eslint-plugin-import": "^2.32.0",
+    "fast-check": "^4.9.0",
     "globals": "^15.12.0",
     "jsdom": "^26.1.0",
     "prettier": "^3.8.3",
@@ -68,6 +72,9 @@
     "typescript": "^5.9.3",
     "vite": "^6.4.3",
     "vitest": "^3.2.7"
+  },
+  "overrides": {
+    "qs": "^6.15.3"
   },
   "bin": {
     "unsane": "./bin/unsane.js"

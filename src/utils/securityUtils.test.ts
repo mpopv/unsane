@@ -32,10 +32,12 @@ describe("Security Utils", () => {
 
     it("should reject protocol-relative URLs and disallowed protocols", () => {
       expect(isSafeUrlAttributeValue("//example.com/path")).toBe(false);
+      expect(isSafeUrlAttributeValue("&#47&#47example.com/path")).toBe(false);
       expect(isSafeUrlAttributeValue("javascript:void(0)")).toBe(false);
       expect(isSafeUrlAttributeValue("data:text/plain,hello")).toBe(false);
       expect(isSafeUrlAttributeValue("vbscript:msgbox(1)")).toBe(false);
       expect(isSafeUrlAttributeValue("unknown:thing")).toBe(false);
+      expect(isSafeUrlAttributeValue("/docs/custom:thing")).toBe(true);
     });
 
     it("should decode entity-obfuscated protocols before checking", () => {
@@ -50,6 +52,18 @@ describe("Security Utils", () => {
         ),
       ).toBe(false);
       expect(isSafeUrlAttributeValue("javascript&colon;void(0)")).toBe(false);
+    });
+
+    it("should keep recursive entity decoding within its fixed bound", () => {
+      let encodedColon = "&colon;";
+
+      for (let layer = 0; layer < 9; layer++) {
+        encodedColon = encodedColon.replace("&", "&amp;");
+      }
+
+      expect(
+        isSafeUrlAttributeValue(`javascript${encodedColon}alert(1)`),
+      ).toBe(true);
     });
 
     it("should reject control and unicode obfuscation characters", () => {
@@ -150,6 +164,7 @@ describe("Security Utils", () => {
       expect(containsDangerousContent("https://example.com")).toBe(false);
       expect(containsDangerousContent("mailto:user@example.com")).toBe(false);
       expect(containsDangerousContent('<div class="test">')).toBe(false);
+      expect(containsDangerousContent("/docs/custom:thing")).toBe(false);
       expect(containsDangerousContent("Regular text with numbers 123")).toBe(
         false,
       );
