@@ -6,6 +6,19 @@ function browserBody(html: string): string {
   return new JSDOM(`<body>${html}</body>`).window.document.body.innerHTML;
 }
 
+function browserTree(html: string): string {
+  const body = new JSDOM(`<body>${html}</body>`).window.document.body;
+  return JSON.stringify(
+    Array.from(body.childNodes, function describe(node): unknown {
+      if (node.nodeType === node.TEXT_NODE) return ["#text", node.textContent];
+      return [
+        node.nodeName.toLowerCase(),
+        Array.from(node.childNodes, describe),
+      ];
+    }),
+  );
+}
+
 describe("htmlSanitizer malformed parser corpus", () => {
   it("strips comments without leaking markup inside them", () => {
     expect(sanitize("a<!-- <img src=x onerror=alert(1)> -->b")).toBe("ab");
@@ -91,5 +104,61 @@ describe("htmlSanitizer malformed parser corpus", () => {
     const document = new JSDOM(`<body>${sanitized}</body>`).window.document;
     expect(document.querySelector("a")?.textContent).toBe("");
     expect(document.body.textContent).toBe("Trusted account settings");
+  });
+
+  it("repairs optional paragraph and heading end tags like browsers", () => {
+    const input =
+      "<p>intro<h2>heading<h3>next</h3>tail<p>second<div>block</div>after";
+    const output = sanitize(input);
+
+    expect(output).toBe(
+      "<p>intro</p><h2>heading</h2><h3>next</h3>tail<p>second</p><div>block</div>after",
+    );
+    expect(browserTree(output)).toBe(browserTree(input));
+  });
+
+  it("repairs list items without closing items in an outer list scope", () => {
+    const input =
+      "<ul><li>one<li>two<ul><li>inner<li>next</ul><li>three</ul>";
+    const output = sanitize(input);
+
+    expect(output).toBe(
+      "<ul><li>one</li><li>two<ul><li>inner</li><li>next</li></ul></li><li>three</li></ul>",
+    );
+    expect(browserTree(output)).toBe(browserTree(input));
+  });
+
+  it("repairs rows and cells into a browser-stable table tree", () => {
+    const input = "<table><tr><td>a<td>b<tr><th>c<td>d</table>";
+    const output = sanitize(input);
+
+    expect(output).toBe(
+      "<table><tr><td>a</td><td>b</td></tr><tr><th>c</th><td>d</td></tr></table>",
+    );
+    expect(browserTree(output)).toBe(browserTree(input));
+  });
+
+  it("repairs definition lists and table sections for custom safe policies", () => {
+    const input =
+      "<dl><dt>term<dd>definition<dt>next</dl>" +
+      "<table><thead><tr><th>h<tbody><tr><td>b<tfoot><tr><td>f</table>";
+    const options = {
+      allowedTags: [
+        "dl",
+        "dt",
+        "dd",
+        "table",
+        "thead",
+        "tbody",
+        "tfoot",
+        "tr",
+        "th",
+        "td",
+      ],
+      allowedAttributes: {},
+    };
+    const output = sanitize(input, options);
+
+    expect(browserTree(output)).toBe(browserTree(input));
   });
 });
