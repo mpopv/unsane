@@ -55,18 +55,15 @@ const VOID_ELEMENTS = new Set(
   ),
 );
 
-const SKIP_CONTENT_ELEMENTS = new Set(
-  "script style iframe object embed template textarea title xmp noembed noframes noscript svg math".split(
-    " ",
-  ),
-);
+const SKIP_CONTENT_PATTERN =
+  /^(script|style$|iframe$|object$|embed$|template$|textarea$|title$|xmp$|noembed$|noframes$|noscript$|svg$|math$|base$|link$|meta$)/;
 
 /* eslint-disable no-control-regex */
 const CONTROL_CHARS_PATTERN = /[\0-\x1f\x7f-\x9f]/g;
 const UNSAFE_ATTRIBUTE_CHARS_PATTERN = /[\0-\x1f\x7f-\x9f\u200c-\u200f\ufeff]/;
 /* eslint-enable no-control-regex */
 const DANGEROUS_ATTRIBUTE_PATTERN =
-  /^(?:on|style$|formaction$|xlink:href$|action$)/;
+  /^(on|style|(form)?action|xlink:href|srcdoc|(image)?srcset|ping|is$)/;
 
 function normalizeStringList(values: unknown, optionName: string): Set<string> {
   if (!Array.isArray(values)) {
@@ -173,7 +170,7 @@ function findElementContentEnd(
 }
 
 function shouldSkipElementContent(tagName: string): boolean {
-  return SKIP_CONTENT_ELEMENTS.has(tagName) || tagName.startsWith("script");
+  return SKIP_CONTENT_PATTERN.test(tagName);
 }
 
 function assertInputWithinLimit(html: string, maxInputLength: number): void {
@@ -456,7 +453,11 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
         } else if (/[a-zA-Z]/.test(char)) {
           const potentialTagName = readTagName(html, position);
 
-          if (!isClosingTag && shouldSkipElementContent(potentialTagName)) {
+          if (
+            !isClosingTag &&
+            shouldSkipElementContent(potentialTagName) &&
+            !VOID_ELEMENTS.has(potentialTagName)
+          ) {
             const openTagEnd = findTagEnd(html, position);
             position =
               findElementContentEnd(
