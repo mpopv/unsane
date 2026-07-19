@@ -20,6 +20,25 @@ describe("htmlSanitizer malformed parser corpus", () => {
     ).toBe("ok");
   });
 
+  it("recognizes raw-content end tags only at HTML name boundaries", () => {
+    expect(
+      sanitize(
+        "<script>bad</scriptx><p>still bad</p></ScRiPt ><p>safe</p>",
+      ),
+    ).toBe("<p>safe</p>");
+    expect(
+      sanitize("<style>bad</stylesheet><p>still bad</p></style/><p>safe</p>"),
+    ).toBe("<p>safe</p>");
+    expect(
+      sanitize("<textarea>bad</textarea!><p>still bad</p></textarea>safe"),
+    ).toBe("safe");
+  });
+
+  it("does not treat self-closing syntax as closing HTML raw-text elements", () => {
+    expect(sanitize("<textarea/><p>not exposed</p>")).toBe("");
+    expect(sanitize("<script/><p>not exposed</p>")).toBe("");
+  });
+
   it("drops SVG and MathML containers rather than partially sanitizing namespaces", () => {
     expect(
       sanitize('<svg><a href="https://example.com">link</a></svg><p>ok</p>'),

@@ -169,19 +169,44 @@ function findElementContentEnd(
   openTagEnd: number,
   tagStart: number,
 ): number {
-  if (html.slice(tagStart, openTagEnd).trimEnd().endsWith("/")) {
+  if (
+    (tagName === "svg" || tagName === "math") &&
+    html.slice(tagStart, openTagEnd).trimEnd().endsWith("/")
+  ) {
     return openTagEnd;
   }
 
-  const closingTag = new RegExp(`</${tagName}`, "gi");
-  closingTag.lastIndex = openTagEnd + 1;
-  const closeTagStart = closingTag.exec(html)?.index ?? -1;
+  let closeTagStart = html.indexOf("</", openTagEnd + 1);
 
-  if (closeTagStart === -1) {
-    return html.length - 1;
+  while (closeTagStart >= 0) {
+    const nameStart = closeTagStart + 2;
+    let offset = 0;
+
+    while (
+      offset < tagName.length &&
+      html[nameStart + offset]?.toLowerCase() === tagName[offset]
+    ) {
+      offset++;
+    }
+
+    const boundary = html[nameStart + tagName.length];
+    if (
+      offset === tagName.length &&
+      (boundary === ">" ||
+        boundary === "/" ||
+        boundary === " " ||
+        boundary === "\t" ||
+        boundary === "\n" ||
+        boundary === "\f" ||
+        boundary === "\r")
+    ) {
+      return findTagEnd(html, nameStart + tagName.length);
+    }
+
+    closeTagStart = html.indexOf("</", nameStart);
   }
 
-  return findTagEnd(html, closeTagStart);
+  return html.length - 1;
 }
 
 function shouldSkipElementContent(tagName: string): boolean {
