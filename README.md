@@ -71,6 +71,12 @@ Available options:
   Defaults to `1_000_000` characters. Set to `Infinity` only for trusted,
   already-bounded inputs.
 
+Custom allowlists cannot re-enable document-active elements (`base`, `link`, or
+`meta`) or active attributes that require a separate parser (`is`, `ping`,
+`srcdoc`, `srcset`, and `imagesrcset`). Unsane strips these capabilities even
+when explicitly listed. Inert custom elements, `data-*`, and `aria-*`
+attributes remain supported.
+
 URL-bearing attributes use a fixed conservative protocol allowlist:
 `http:`, `https:`, `mailto:`, `tel:`, `ftp:`, and `sms:`. Custom protocol
 allowlists are intentionally not part of the public API. Relative URLs and

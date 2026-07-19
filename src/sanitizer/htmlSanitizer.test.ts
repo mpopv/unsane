@@ -65,6 +65,60 @@ describe("htmlSanitizer", () => {
     expect(output).toBe('<div class="ok" data-id="1">Text</div>');
   });
 
+  it("should not let custom policies enable document-active elements", () => {
+    const inputs = [
+      '<base href="https://attacker.example/"><p>safe</p>',
+      '<meta http-equiv="refresh" content="0;url=https://attacker.example/"><p>safe</p>',
+      '<link rel="stylesheet" href="https://attacker.example/attack.css"><p>safe</p>',
+      '<embed src="https://attacker.example/"><p>safe</p>',
+    ];
+
+    for (const input of inputs) {
+      const tagName = input.match(/^<([a-z]+)/i)?.[1] ?? "";
+      const output = sanitize(input, {
+        allowedTags: [tagName, "p"],
+        allowedAttributes: {
+          "*": ["href", "http-equiv", "content", "rel", "src"],
+        },
+      });
+
+      expect(output, input).toBe("<p>safe</p>");
+    }
+  });
+
+  it("should not let custom policies enable active attributes", () => {
+    const input =
+      '<a href="/safe" ping="https://attacker.example/" is="x-attack">Link</a>' +
+      '<img src="/safe.png" srcset="javascript:alert(1) 1x" imagesrcset="javascript:alert(1) 2x">' +
+      '<div srcdoc="<script>alert(1)</script>">Text</div>';
+    const output = sanitize(input, {
+      allowedTags: ["a", "img", "div"],
+      allowedAttributes: {
+        "*": ["href", "ping", "is", "src", "srcset", "imagesrcset", "srcdoc"],
+      },
+    });
+
+    expect(output).toBe(
+      '<a href="/safe">Link</a><img src="/safe.png" /><div>Text</div>',
+    );
+  });
+
+  it("should preserve inert custom-policy capabilities", () => {
+    expect(
+      sanitize(
+        '<widget data-state="ready" aria-label="Status" title="safe">Text</widget>',
+        {
+          allowedTags: ["widget"],
+          allowedAttributes: {
+            widget: ["data-state", "aria-label", "title"],
+          },
+        },
+      ),
+    ).toBe(
+      '<widget data-state="ready" aria-label="Status" title="safe">Text</widget>',
+    );
+  });
+
   it("should safely handle property-like tag names in allowlists", () => {
     expect(
       sanitize("<constructor>safe</constructor>", {
