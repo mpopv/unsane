@@ -5,12 +5,27 @@
 // Simple HTML entity maps - common entities only
 const NAMED_TO_CHAR: Record<string, string> = {
   quot: '"',
+  QUOT: '"',
   amp: "&",
+  AMP: "&",
   lt: "<",
+  LT: "<",
   gt: ">",
+  GT: ">",
   apos: "'",
   nbsp: "\u00A0",
+  colon: ":",
+  lowbar: "_",
+  NewLine: "\n",
+  Tab: "\t",
 };
+
+const LEGACY_NAME_PATTERN = /^(?:AMP|GT|LT|QUOT|amp|gt|lt|nbsp|quot)$/;
+const REFERENCE_PATTERN =
+  /&(?:#(?:[xX][\dA-Fa-f]+|\d+);?|[0-9A-Za-z]+;?)/g;
+
+const WINDOWS_1252_REPLACEMENTS =
+  "€\u0081‚ƒ„…†‡ˆ‰Š‹Œ\u008DŽ\u008F\u0090‘’“”•–—˜™š›œ\u009DžŸ";
 
 const CHAR_TO_NAMED: Record<string, string> = {
   '"': "quot",
@@ -30,8 +45,12 @@ const TEXT_NORMALIZE_PATTERN = /[\0-\x1f\x7f-\x9f"'&<>`]/g;
  * Convert a code point to a string, handling surrogate pairs
  */
 function codePointToString(codePoint: number): string {
-  if (codePoint < 0 || codePoint > 0x10ffff) return "\uFFFD";
+  if (codePoint === 0 || codePoint > 0x10ffff) return "\uFFFD";
   if (codePoint >= 0xd800 && codePoint <= 0xdfff) return "\uFFFD";
+
+  if (codePoint >= 0x80 && codePoint <= 0x9f) {
+    return WINDOWS_1252_REPLACEMENTS[codePoint - 0x80];
+  }
 
   if (codePoint > 0xffff) {
     codePoint -= 0x10000;
@@ -42,6 +61,58 @@ function codePointToString(codePoint: number): string {
   }
 
   return String.fromCharCode(codePoint);
+}
+
+function decodeReference(
+  reference: string,
+  followingCharacter: string,
+  attributeContext: boolean,
+): string | undefined {
+  const hasSemicolon = reference.endsWith(";");
+  const entity = reference.slice(1, hasSemicolon ? -1 : undefined);
+
+  if (entity[0] === "#") {
+    const hexadecimal = entity[1] === "x" || entity[1] === "X";
+    return codePointToString(
+      parseInt(entity.slice(hexadecimal ? 2 : 1), hexadecimal ? 16 : 10),
+    );
+  }
+
+  if (
+    !hasSemicolon &&
+    (!LEGACY_NAME_PATTERN.test(entity) ||
+      (attributeContext && /[=0-9A-Za-z]/.test(followingCharacter)))
+  ) {
+    return undefined;
+  }
+
+  return NAMED_TO_CHAR[entity];
+}
+
+function normalizeReferences(
+  text: string,
+  normalizePlainText: (value: string) => string,
+  attributeContext: boolean,
+): string {
+  let output = "";
+  let lastIndex = 0;
+
+  for (const match of text.matchAll(REFERENCE_PATTERN)) {
+    const index = match.index;
+    const reference = match[0];
+    output += normalizePlainText(text.slice(lastIndex, index));
+
+    const decoded = decodeReference(
+      reference,
+      text[index + reference.length] ?? "",
+      attributeContext,
+    );
+    output +=
+      decoded === undefined ? reference : normalizePlainText(decoded);
+    lastIndex = index + reference.length;
+  }
+
+  return output + normalizePlainText(text.slice(lastIndex));
 }
 
 function escapeOnlyChar(char: string): string {
@@ -123,34 +194,42 @@ export function escape(text: string): string {
 }
 
 /**
- * Decode all HTML entities in a string
- * Only handles properly formed HTML entities with semicolons
+ * Decode numeric references and the compact named-reference subset used by
+ * Unsane's public helpers and security checks.
  */
 export function decode(text: string): string {
   if (!text) return "";
 
-  // Only decode entities with proper semicolons, matching HTML5 parsing rules
-  return text.replace(
-    /&(#(?:[xX][\dA-Fa-f]+|\d+)|[0-9A-Za-z]+);/g,
-    (match, entity) => {
-      if (entity[0] === "#") {
-        const codePoint =
-          entity[1] === "x" || entity[1] === "X"
-            ? parseInt(entity.slice(2), 16)
-            : parseInt(entity.slice(1), 10);
-        return codePointToString(codePoint);
-      }
+  return text.replace(REFERENCE_PATTERN, (reference, index: number) => {
+    return (
+      decodeReference(
+        reference,
+        text[index + reference.length] ?? "",
+        false,
+      ) ?? reference
+    );
+  });
+}
 
-      return NAMED_TO_CHAR[entity] || match;
-    },
+/** Normalize references, remove controls, and escape inert text in one scan. */
+export function normalizeText(text: string): string {
+  return normalizeReferences(
+    text,
+    (value) =>
+      value.replace(TEXT_NORMALIZE_PATTERN, (char) => {
+        const code = char.charCodeAt(0);
+        if (code <= 0x1f || (code >= 0x7f && code <= 0x9f)) return "";
+        return escapeOnlyChar(char);
+      }),
+    false,
   );
 }
 
-/** Decode entities, then remove controls and escape inert text in one scan. */
-export function normalizeText(text: string): string {
-  return decode(text).replace(TEXT_NORMALIZE_PATTERN, (char) => {
-    const code = char.charCodeAt(0);
-    if (code <= 0x1f || (code >= 0x7f && code <= 0x9f)) return "";
-    return escapeOnlyChar(char);
-  });
+/** Preserve browser-recognized named references while safely quoting an attribute. */
+export function normalizeAttributeValue(text: string): string {
+  return normalizeReferences(
+    text,
+    (value) => encode(value, { escapeOnly: true }),
+    true,
+  );
 }

@@ -133,6 +133,14 @@ const escaped = escape('<script>"alert"</script>');
 // -> '&lt;script&gt;&quot;alert&quot;&lt;/script&gt;'
 ```
 
+Numeric references follow the HTML replacement rules for nulls, surrogates,
+out-of-range values, and the Windows-1252 compatibility range. During
+sanitization, named references outside Unsane's compact built-in decoder are
+preserved for the browser to interpret, so their visible value is not changed
+and the runtime does not need to ship the full multi-thousand-entry entity
+table. URL and other active attributes remain subject to conservative
+capability-specific validation.
+
 ### CLI Usage
 
 You can also sanitize input directly from the command line:
