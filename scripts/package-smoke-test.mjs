@@ -117,19 +117,6 @@ const EXPECTED_PACKED_FILES = [
   "LICENSE",
   "README.md",
   "bin/unsane.js",
-  "dist/cjs/index.d.ts",
-  "dist/cjs/index.js",
-  "dist/cjs/package.json",
-  "dist/cjs/sanitizer/config.d.ts",
-  "dist/cjs/sanitizer/config.js",
-  "dist/cjs/sanitizer/htmlSanitizer.d.ts",
-  "dist/cjs/sanitizer/htmlSanitizer.js",
-  "dist/cjs/types.d.ts",
-  "dist/cjs/types.js",
-  "dist/cjs/utils/htmlEntities.d.ts",
-  "dist/cjs/utils/htmlEntities.js",
-  "dist/cjs/utils/securityUtils.d.ts",
-  "dist/cjs/utils/securityUtils.js",
   "dist/index.d.ts",
   "dist/index.js",
   "dist/sanitizer/config.d.ts",
@@ -221,17 +208,6 @@ if (decode(encode("<x>")) !== "<x>") {
   );
   runNode(esmScript, consumerDir);
 
-  const cjsScript = join(consumerDir, "cjs-smoke.cjs");
-  writeFileSync(
-    cjsScript,
-    `const { sanitize } = require("unsane");
-
-if (sanitize('<img src="javascript:alert(1)"><span>ok</span>') !== "<img /><span>ok</span>") {
-  throw new Error("CJS sanitize failed");
-}
-`,
-  );
-  runNode(cjsScript, consumerDir);
   assertCli(consumerDir);
   assertTypes(consumerDir);
 

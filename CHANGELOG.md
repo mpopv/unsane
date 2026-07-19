@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Breaking Changes
+
+- Removed the CommonJS build and `require` export; Unsane is now an ESM-only package for Node.js 22 and later.
+
 ### Fixes
 
 - Added safe `rel="noopener noreferrer"` hardening for links emitted with `target="_blank"`.
@@ -9,7 +13,6 @@
 - Hardened URL attribute filtering by decoding entity-obfuscated protocols, blocking protocol-relative URLs, and avoiding generic text heuristics for otherwise safe URLs.
 - Preserved explicit empty attribute values separately from boolean attributes.
 - Normalized custom sanitizer tag and attribute allowlists to lowercase before matching.
-- Fixed CommonJS package consumption by exporting the generated CJS entry directly and marking `dist/cjs` as CommonJS.
 - Fixed CLI execution on Node 18 by using a `.js` bin target while preserving the `unsane` command name.
 - Fixed size analysis to inspect the current `dist/` runtime import closure instead of stale `dist/src/` paths.
 - Clarified that URL protocols are intentionally fixed to Unsane's conservative allowlist rather than configurable through an `allowedProtocols` option.
@@ -31,7 +34,6 @@
 - Added a corpus-style security regression suite for executable-output invariants.
 - Added deterministic generated-input sanitizer fuzz coverage.
 - Broadened differential sanitizer checks to assert hostile-input invariants against DOMPurify and `sanitize-html`.
-- Added package smoke coverage for ESM import, CommonJS require, and CLI stdin usage.
 - Simplified inert text handling to decode and escape text directly without a misleading dangerous-word pass.
 
 ## 0.0.19 (2025-10-22)

@@ -141,17 +141,6 @@ if (decode(encode(escape("<x>"))) !== "&lt;x&gt;") {
   runNode(join(consumerDir, "esm-check.mjs"), consumerDir);
 
   writeFileSync(
-    join(consumerDir, "cjs-check.cjs"),
-    `const { sanitize } = require("unsane");
-
-if (sanitize('<img src="javascript:alert(1)"><span>ok</span>') !== "<img /><span>ok</span>") {
-  throw new Error("CJS sanitize failed");
-}
-`,
-  );
-  runNode(join(consumerDir, "cjs-check.cjs"), consumerDir);
-
-  writeFileSync(
     join(consumerDir, "tsconfig.json"),
     JSON.stringify(
       {
