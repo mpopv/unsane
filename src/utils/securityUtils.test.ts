@@ -10,9 +10,18 @@ import {
 describe("Security Utils", () => {
   describe("isUrlAttribute", () => {
     it("should identify URL-bearing attributes", () => {
-      expect(isUrlAttribute("href")).toBe(true);
-      expect(isUrlAttribute("SRC")).toBe(true);
-      expect(isUrlAttribute("xlink:href")).toBe(true);
+      for (const attribute of [
+        "background",
+        "cite",
+        "href",
+        "longdesc",
+        "poster",
+        "SRC",
+        "usemap",
+      ]) {
+        expect(isUrlAttribute(attribute)).toBe(true);
+      }
+      expect(isUrlAttribute("xlink:href")).toBe(false);
       expect(isUrlAttribute("data-test")).toBe(false);
     });
   });
