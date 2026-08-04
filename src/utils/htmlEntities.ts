@@ -15,14 +15,12 @@ const NAMED_TO_CHAR: Record<string, string> = {
   apos: "'",
   nbsp: "\u00A0",
   colon: ":",
-  lowbar: "_",
   NewLine: "\n",
   Tab: "\t",
 };
 
 const LEGACY_NAME_PATTERN = /^(?:AMP|GT|LT|QUOT|amp|gt|lt|nbsp|quot)$/;
-const REFERENCE_PATTERN =
-  /&(?:#(?:[xX][\dA-Fa-f]+|\d+);?|[0-9A-Za-z]+;?)/g;
+const REFERENCE_PATTERN = /&(?:#(?:[xX][\dA-Fa-f]+|\d+);?|[0-9A-Za-z]+;?)/g;
 
 const WINDOWS_1252_REPLACEMENTS =
   "€\u0081‚ƒ„…†‡ˆ‰Š‹Œ\u008DŽ\u008F\u0090‘’“”•–—˜™š›œ\u009DžŸ";
@@ -107,15 +105,14 @@ function normalizeReferences(
       text[index + reference.length] ?? "",
       attributeContext,
     );
-    output +=
-      decoded === undefined ? reference : normalizePlainText(decoded);
+    output += decoded === undefined ? reference : normalizePlainText(decoded);
     lastIndex = index + reference.length;
   }
 
   return output + normalizePlainText(text.slice(lastIndex));
 }
 
-function escapeOnlyChar(char: string): string {
+function escapeCharacter(char: string): string {
   if (char === "'") return "&#x27;";
   if (char === "`") return "&#x60;";
   return `&${CHAR_TO_NAMED[char]};`;
@@ -128,7 +125,6 @@ export interface EncodeOptions {
   useNamedReferences?: boolean; // Use named entities like &lt; instead of &#x3C;
   decimal?: boolean; // Use decimal (&#38;) instead of hex (&#x26;)
   encodeEverything?: boolean; // Encode all characters, not just special ones
-  escapeOnly?: boolean; // Only escape minimal set of security-sensitive characters
 }
 
 /**
@@ -145,33 +141,11 @@ export function encode(text: string, options: EncodeOptions = {}): string {
     useNamedReferences = false,
     decimal = false,
     encodeEverything = false,
-    escapeOnly = false,
   } = options;
 
-  // Choose pattern based on encoding needs
-  let pattern: RegExp;
-
-  if (escapeOnly) {
-    // Minimal set for security (original "escape" function behavior)
-    pattern = ESCAPE_CHARS;
-  } else if (encodeEverything) {
-    // Encode every character
-    pattern = /./g;
-  } else {
-    // Default - encode security-sensitive characters
-    pattern = /["&<>']/g;
-  }
+  const pattern = encodeEverything ? /./g : /["&<>']/g;
 
   return String(text).replace(pattern, (char) => {
-    // Skip non-target characters (should never happen because pattern limits matches)
-    /* c8 ignore next */
-    if (!escapeOnly && !encodeEverything && !/["&<>']/.test(char)) return char;
-
-    // For escape function compatibility - use fixed output format for tests
-    if (escapeOnly) {
-      return escapeOnlyChar(char);
-    }
-
     // Use named references if requested and available
     if (useNamedReferences && CHAR_TO_NAMED[char]) {
       return `&${CHAR_TO_NAMED[char]};`;
@@ -187,10 +161,11 @@ export function encode(text: string, options: EncodeOptions = {}): string {
 
 /**
  * Escape special characters to prevent XSS
- * This is an alias for encode with escapeOnly option for backward compatibility
+ * Uses named references for the minimal context-safe character set.
  */
 export function escape(text: string): string {
-  return encode(text, { escapeOnly: true });
+  if (!text) return "";
+  return String(text).replace(ESCAPE_CHARS, escapeCharacter);
 }
 
 /**
@@ -202,11 +177,8 @@ export function decode(text: string): string {
 
   return text.replace(REFERENCE_PATTERN, (reference, index: number) => {
     return (
-      decodeReference(
-        reference,
-        text[index + reference.length] ?? "",
-        false,
-      ) ?? reference
+      decodeReference(reference, text[index + reference.length] ?? "", false) ??
+      reference
     );
   });
 }
@@ -219,7 +191,7 @@ export function normalizeText(text: string): string {
       value.replace(TEXT_NORMALIZE_PATTERN, (char) => {
         const code = char.charCodeAt(0);
         if (code <= 0x1f || (code >= 0x7f && code <= 0x9f)) return "";
-        return escapeOnlyChar(char);
+        return escapeCharacter(char);
       }),
     false,
   );
@@ -227,9 +199,5 @@ export function normalizeText(text: string): string {
 
 /** Preserve browser-recognized named references while safely quoting an attribute. */
 export function normalizeAttributeValue(text: string): string {
-  return normalizeReferences(
-    text,
-    (value) => encode(value, { escapeOnly: true }),
-    true,
-  );
+  return normalizeReferences(text, escape, true);
 }

@@ -37,7 +37,8 @@ const attributes = [
   "target",
   "title",
 ];
-const forbiddenTagPattern = /^(?:base|embed|iframe|link|math|meta|object|script|style|svg)$/i;
+const forbiddenTagPattern =
+  /^(?:base|embed|iframe|link|math|meta|object|script|style|svg)$/i;
 const forbiddenAttributePattern =
   /^(?:on|style$|action$|formaction$|xlink:href$|srcdoc$|srcset$|imagesrcset$|ping$|is$)/i;
 const unsafeProtocolPattern =
@@ -56,10 +57,16 @@ function select(values, data, offset) {
 
 function assertSafeTokens(output) {
   for (const token of output.match(/<[^>]*>/g) ?? []) {
-    if (/<\/?(?:script|style|iframe|object|embed|svg|math|base|link|meta)\b/i.test(token)) {
+    if (
+      /<\/?(?:script|style|iframe|object|embed|svg|math|base|link|meta)\b/i.test(
+        token,
+      )
+    ) {
       throw new Error(`Forbidden element token: ${token}`);
     }
-    if (/\s(?:on[a-z]+|style|srcdoc|srcset|imagesrcset|ping|is)=/i.test(token)) {
+    if (
+      /\s(?:on[a-z]+|style|srcdoc|srcset|imagesrcset|ping|is)=/i.test(token)
+    ) {
       throw new Error(`Forbidden attribute token: ${token}`);
     }
   }
@@ -102,9 +109,7 @@ export function fuzz(data) {
   if (output.length > input.length * 8 + 256) {
     throw new Error(`Output expansion ${input.length} -> ${output.length}`);
   }
-  if (
-    isSafeUrlAttributeValue(input) !== isSafeUrlAttributeValue(input)
-  ) {
+  if (isSafeUrlAttributeValue(input) !== isSafeUrlAttributeValue(input)) {
     throw new Error("Non-deterministic URL classification");
   }
 

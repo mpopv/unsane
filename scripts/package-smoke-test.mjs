@@ -89,7 +89,7 @@ function assertTypes(cwd) {
 
   writeFileSync(
     join(cwd, "types-smoke.ts"),
-    `import { createSanitizer, sanitize, escape, encode, decode, type CompiledSanitizer, type Sanitizer, type SanitizerOptions } from "unsane";
+    `import { createSanitizer, sanitize, escape, encode, decode, type CompiledSanitizer, type EncodeOptions, type SanitizerOptions } from "unsane";
 
 const options: SanitizerOptions = {
   allowedTags: ["a"],
@@ -104,10 +104,10 @@ const sanitized: string = sanitize('<a href="/docs" class="link">Docs</a>', opti
 const escaped: string = escape(sanitized);
 const encoded: string = encode(escaped);
 const decoded: string = decode(encoded);
-const sanitizer: Sanitizer = { sanitize };
+const encodeOptions: EncodeOptions = { useNamedReferences: true };
 const compiled: CompiledSanitizer = createSanitizer(options);
 
-sanitizer.sanitize(decoded, options);
+encode(decoded, encodeOptions);
 compiled(decoded);
 `,
   );
@@ -125,6 +125,10 @@ const EXPECTED_PACKED_FILES = [
   "dist/sanitizer/config.js",
   "dist/sanitizer/htmlSanitizer.d.ts",
   "dist/sanitizer/htmlSanitizer.js",
+  "dist/sanitizer/policy.d.ts",
+  "dist/sanitizer/policy.js",
+  "dist/sanitizer/rawText.d.ts",
+  "dist/sanitizer/rawText.js",
   "dist/types.d.ts",
   "dist/types.js",
   "dist/utils/htmlEntities.d.ts",
@@ -168,6 +172,7 @@ try {
   const packOutput = run("npm", [
     "pack",
     "--json",
+    "--ignore-scripts",
     "--pack-destination",
     packDir,
   ]);

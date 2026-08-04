@@ -110,9 +110,11 @@ for (const payload of mutationXssCorpus) {
 
           return {
             executed: Boolean(
-              (globalThis as typeof globalThis & {
-                __unsaneExecuted?: boolean;
-              }).__unsaneExecuted,
+              (
+                globalThis as typeof globalThis & {
+                  __unsaneExecuted?: boolean;
+                }
+              ).__unsaneExecuted,
             ),
             forbiddenAttributes,
             forbiddenElements,
@@ -149,6 +151,6 @@ test("preserves a canonical benign fragment", async ({ page }) => {
   }, sanitized);
 
   expect(browserHtml).toBe(
-    '<p id="intro">Hello <strong>world</strong> <a href="/docs" target="_blank" rel="noopener noreferrer">Docs</a></p>',
+    '<p>Hello <strong>world</strong> <a href="/docs" target="_blank" rel="noopener noreferrer">Docs</a></p>',
   );
 });

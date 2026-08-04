@@ -86,7 +86,9 @@ const safeUrls = [
 test("matches browser URL parsing without accepting unsafe schemes", async ({
   page,
 }) => {
-  await page.setContent('<!doctype html><base href="https://safe.example/root/">');
+  await page.setContent(
+    '<!doctype html><base href="https://safe.example/root/">',
+  );
 
   const candidates = dangerousUrlCorpus().map((value) => ({
     value,
@@ -142,7 +144,9 @@ test("matches browser URL parsing without accepting unsafe schemes", async ({
 test("retains legitimate relative and allowlisted URLs in browser DOMs", async ({
   page,
 }) => {
-  await page.setContent('<!doctype html><base href="https://safe.example/root/">');
+  await page.setContent(
+    '<!doctype html><base href="https://safe.example/root/">',
+  );
 
   const candidates = safeUrls.map((value) => ({
     value,
@@ -151,7 +155,7 @@ test("retains legitimate relative and allowlisted URLs in browser DOMs", async (
 
   const result = await page.evaluate(
     ({ protocols, values }) => {
-      const allowed = new Set(protocols);
+      const allowed = new Set<string>(protocols);
 
       return values.map((candidate) => {
         const container = document.createElement("div");

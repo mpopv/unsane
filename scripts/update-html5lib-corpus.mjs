@@ -1,7 +1,10 @@
 import { writeFile } from "node:fs/promises";
 
 const UPSTREAM_COMMIT = "224991ec10db04f056a89eed8b0bd8695fd2950e";
-const OUTPUT = new URL("../test/corpus/html5lib-applicable.json", import.meta.url);
+const OUTPUT = new URL(
+  "../test/corpus/html5lib-applicable.json",
+  import.meta.url,
+);
 
 const selectedDescriptions = {
   "test1.test": [
@@ -62,7 +65,8 @@ const cases = [];
 for (const [file, descriptions] of Object.entries(selectedDescriptions)) {
   const url = `https://raw.githubusercontent.com/html5lib/html5lib-tests/${UPSTREAM_COMMIT}/tokenizer/${file}`;
   const response = await fetch(url);
-  if (!response.ok) throw new Error(`Unable to fetch ${url}: ${response.status}`);
+  if (!response.ok)
+    throw new Error(`Unable to fetch ${url}: ${response.status}`);
   const upstream = await response.json();
   const byDescription = new Map(
     upstream.tests.map((test) => [test.description, test]),

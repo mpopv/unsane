@@ -35,9 +35,7 @@ describe("htmlSanitizer malformed parser corpus", () => {
 
   it("recognizes raw-content end tags only at HTML name boundaries", () => {
     expect(
-      sanitize(
-        "<script>bad</scriptx><p>still bad</p></ScRiPt ><p>safe</p>",
-      ),
+      sanitize("<script>bad</scriptx><p>still bad</p></ScRiPt ><p>safe</p>"),
     ).toBe("<p>safe</p>");
     expect(
       sanitize("<style>bad</stylesheet><p>still bad</p></style/><p>safe</p>"),
@@ -166,8 +164,7 @@ describe("htmlSanitizer malformed parser corpus", () => {
   });
 
   it("repairs list items without closing items in an outer list scope", () => {
-    const input =
-      "<ul><li>one<li>two<ul><li>inner<li>next</ul><li>three</ul>";
+    const input = "<ul><li>one<li>two<ul><li>inner<li>next</ul><li>three</ul>";
     const output = sanitize(input);
 
     expect(output).toBe(

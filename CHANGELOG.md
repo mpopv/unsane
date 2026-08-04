@@ -5,9 +5,20 @@
 ### Breaking Changes
 
 - Removed the CommonJS build and `require` export; Unsane is now an ESM-only package for Node.js 22 and later.
+- Removed the unused object-shaped `Sanitizer` interface and the internal-only
+  `EncodeOptions.escapeOnly` switch; use the exported `CompiledSanitizer` type
+  and `escape()` function directly.
+- Removed `id` from the default global attribute allowlist to avoid named DOM
+  property collisions. Custom policies can still opt in explicitly.
 
 ### Fixes
 
+- Fixed raw-text closing-tag detection so prefixes such as `</scriptx>` cannot
+  terminate a skipped `<script>` element and leak its contents.
+- Applied URL protocol validation to legacy and custom-allowlisted URL-bearing
+  attributes such as `background`, `dynsrc`, and `lowsrc`.
+- Preserved browser-recognized named references and applied HTML numeric
+  replacement rules during sanitizer normalization.
 - Added safe `rel="noopener noreferrer"` hardening for links emitted with `target="_blank"`.
 - Added configurable input-length guardrails through `maxInputLength`.
 - Hardened URL attribute filtering by decoding entity-obfuscated protocols, blocking protocol-relative URLs, and avoiding generic text heuristics for otherwise safe URLs.
@@ -20,6 +31,21 @@
 
 ### Improvements
 
+- Separated policy compilation, attribute capability enforcement, and raw-text
+  scanning from the tokenizer, and expanded mutation coverage across those
+  security-critical modules and entity handling with a 90% repository gate,
+  replacing a misleading 100% score over one helper file.
+- Removed dead dangerous-content heuristics, duplicate tests, an unused
+  minifier dependency, and redundant npm package exclusions.
+- Added repository-wide formatting and test/tooling type checks, grouped weekly
+  dependency updates, and zero-vulnerability lockfile refreshes.
+- Made release commits roll the Unreleased changelog into a dated version
+  section and reject untracked files before publishing.
+- Consolidated CI so quality gates build once and reuse current artifacts while
+  supported Node versions retain unit/build coverage.
+- Recalibrated the Brotli runtime ceiling to 3.75 KiB after the entity,
+  tree-repair, raw-text, and capability hardening; the 10 KiB minified and 4
+  KiB gzip ceilings remain unchanged.
 - Fused URL entity decoding, control detection, and whitespace removal, and combined text control filtering with escaping to avoid repeated full-input scans.
 - Reduced sanitizer allocation by slicing text and attribute values from the source only when each token closes, with a direct plain-text path that bypasses markup parsing.
 - Precompiled the default sanitizer policy and added `createSanitizer()` for callers that reuse custom policies across many inputs.

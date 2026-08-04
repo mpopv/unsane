@@ -2,7 +2,7 @@
  * Default configuration for the HTML sanitizer
  */
 
-import { SanitizerOptions } from "../types.js";
+import type { SanitizerOptions } from "../types.js";
 
 export const DEFAULT_MAX_INPUT_LENGTH = 1_000_000;
 
@@ -25,12 +25,8 @@ export const DEFAULT_OPTIONS: Required<SanitizerOptions> = {
     img: "src alt width height".split(" "),
 
     // Global attributes
-    "*": "id class".split(" "),
+    "*": ["class"],
   },
 
   maxInputLength: DEFAULT_MAX_INPUT_LENGTH,
-
-  // Always self-close void elements
 };
-
-// No default export

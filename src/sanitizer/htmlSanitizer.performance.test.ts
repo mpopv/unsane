@@ -66,8 +66,7 @@ describe("htmlSanitizer performance guardrails", () => {
   it("scales near-linearly for adversarial parser inputs", () => {
     const payloads = [
       (count: number) => "<script>x</script>".repeat(count),
-      (count: number) =>
-        `${"<div>".repeat(count)}${"</span>".repeat(count)}`,
+      (count: number) => `${"<div>".repeat(count)}${"</span>".repeat(count)}`,
     ];
 
     for (const createPayload of payloads) {

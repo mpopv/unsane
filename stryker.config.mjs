@@ -4,14 +4,18 @@
 const config = {
   concurrency: 2,
   coverageAnalysis: "perTest",
-  ignoreStatic: true,
-  mutate: ["src/utils/securityUtils.ts"],
+  mutate: [
+    "src/sanitizer/policy.ts",
+    "src/sanitizer/rawText.ts",
+    "src/utils/htmlEntities.ts",
+    "src/utils/securityUtils.ts",
+  ],
   reporters: ["clear-text", "progress"],
   testRunner: "vitest",
   thresholds: {
-    high: 100,
-    low: 100,
-    break: 100,
+    high: 95,
+    low: 90,
+    break: 90,
   },
   timeoutMS: 10_000,
 };

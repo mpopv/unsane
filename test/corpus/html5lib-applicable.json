@@ -8,66 +8,31 @@
       "file": "test1.test",
       "description": "Correct Doctype lowercase",
       "input": "<!DOCTYPE html>",
-      "output": [
-        [
-          "DOCTYPE",
-          "html",
-          null,
-          null,
-          true
-        ]
-      ]
+      "output": [["DOCTYPE", "html", null, null, true]]
     },
     {
       "file": "test1.test",
       "description": "Correct Doctype uppercase",
       "input": "<!DOCTYPE HTML>",
-      "output": [
-        [
-          "DOCTYPE",
-          "html",
-          null,
-          null,
-          true
-        ]
-      ]
+      "output": [["DOCTYPE", "html", null, null, true]]
     },
     {
       "file": "test1.test",
       "description": "Correct Doctype mixed case",
       "input": "<!DOCTYPE HtMl>",
-      "output": [
-        [
-          "DOCTYPE",
-          "html",
-          null,
-          null,
-          true
-        ]
-      ]
+      "output": [["DOCTYPE", "html", null, null, true]]
     },
     {
       "file": "test1.test",
       "description": "Truncated doctype start",
       "input": "<!DOC>",
-      "output": [
-        [
-          "Comment",
-          "DOC"
-        ]
-      ]
+      "output": [["Comment", "DOC"]]
     },
     {
       "file": "test1.test",
       "description": "Single Start Tag",
       "input": "<h>",
-      "output": [
-        [
-          "StartTag",
-          "h",
-          {}
-        ]
-      ]
+      "output": [["StartTag", "h", {}]]
     },
     {
       "file": "test1.test",
@@ -79,12 +44,7 @@
       "file": "test1.test",
       "description": "Empty start tag",
       "input": "<>",
-      "output": [
-        [
-          "Character",
-          "<>"
-        ]
-      ]
+      "output": [["Character", "<>"]]
     },
     {
       "file": "test1.test",
@@ -119,15 +79,8 @@
       "description": "Start/End Tag",
       "input": "<h></h>",
       "output": [
-        [
-          "StartTag",
-          "h",
-          {}
-        ],
-        [
-          "EndTag",
-          "h"
-        ]
+        ["StartTag", "h", {}],
+        ["EndTag", "h"]
       ]
     },
     {
@@ -135,15 +88,8 @@
       "description": "End Tag w/attribute",
       "input": "<h></h a='b'>",
       "output": [
-        [
-          "StartTag",
-          "h",
-          {}
-        ],
-        [
-          "EndTag",
-          "h"
-        ]
+        ["StartTag", "h", {}],
+        ["EndTag", "h"]
       ]
     },
     {
@@ -194,122 +140,67 @@
       "file": "test1.test",
       "description": "Simple comment",
       "input": "<!--comment-->",
-      "output": [
-        [
-          "Comment",
-          "comment"
-        ]
-      ]
+      "output": [["Comment", "comment"]]
     },
     {
       "file": "test1.test",
       "description": "Comment, Central dash no space",
       "input": "<!----->",
-      "output": [
-        [
-          "Comment",
-          "-"
-        ]
-      ]
+      "output": [["Comment", "-"]]
     },
     {
       "file": "test1.test",
       "description": "Comment, two central dashes",
       "input": "<!-- --comment -->",
-      "output": [
-        [
-          "Comment",
-          " --comment "
-        ]
-      ]
+      "output": [["Comment", " --comment "]]
     },
     {
       "file": "test1.test",
       "description": "Unfinished comment",
       "input": "<!--comment",
-      "output": [
-        [
-          "Comment",
-          "comment"
-        ]
-      ]
+      "output": [["Comment", "comment"]]
     },
     {
       "file": "test1.test",
       "description": "Start of a comment",
       "input": "<!-",
-      "output": [
-        [
-          "Comment",
-          "-"
-        ]
-      ]
+      "output": [["Comment", "-"]]
     },
     {
       "file": "test1.test",
       "description": "Short comment",
       "input": "<!-->",
-      "output": [
-        [
-          "Comment",
-          ""
-        ]
-      ]
+      "output": [["Comment", ""]]
     },
     {
       "file": "test1.test",
       "description": "Short comment two",
       "input": "<!--->",
-      "output": [
-        [
-          "Comment",
-          ""
-        ]
-      ]
+      "output": [["Comment", ""]]
     },
     {
       "file": "test1.test",
       "description": "Short comment three",
       "input": "<!---->",
-      "output": [
-        [
-          "Comment",
-          ""
-        ]
-      ]
+      "output": [["Comment", ""]]
     },
     {
       "file": "test1.test",
       "description": "< in comment",
       "input": "<!-- <test-->",
-      "output": [
-        [
-          "Comment",
-          " <test"
-        ]
-      ]
+      "output": [["Comment", " <test"]]
     },
     {
       "file": "test1.test",
       "description": "Nested comment",
       "input": "<!-- <!--test-->",
-      "output": [
-        [
-          "Comment",
-          " <!--test"
-        ]
-      ]
+      "output": [["Comment", " <!--test"]]
     },
     {
       "file": "test2.test",
       "description": "Entity without a name",
       "input": "&;",
-      "output": [
-        [
-          "Character",
-          "&;"
-        ]
-      ]
+      "output": [["Character", "&;"]]
     },
     {
       "file": "test2.test",
@@ -329,27 +220,13 @@
       "file": "test2.test",
       "description": "Non-void element containing trailing /",
       "input": "<h/>",
-      "output": [
-        [
-          "StartTag",
-          "h",
-          {},
-          true
-        ]
-      ]
+      "output": [["StartTag", "h", {}, true]]
     },
     {
       "file": "test2.test",
       "description": "Void element with permitted slash",
       "input": "<br/>",
-      "output": [
-        [
-          "StartTag",
-          "br",
-          {},
-          true
-        ]
-      ]
+      "output": [["StartTag", "br", {}, true]]
     },
     {
       "file": "test2.test",
@@ -420,15 +297,8 @@
             "z": "&xlink_xmlns;"
           }
         ],
-        [
-          "Character",
-          "bar"
-        ],
-        [
-          "StartTag",
-          "z",
-          {}
-        ]
+        ["Character", "bar"],
+        ["StartTag", "z", {}]
       ]
     },
     {
@@ -443,15 +313,8 @@
             "z": "  foo"
           }
         ],
-        [
-          "Character",
-          "bar"
-        ],
-        [
-          "StartTag",
-          "z",
-          {}
-        ]
+        ["Character", "bar"],
+        ["StartTag", "z", {}]
       ]
     },
     {
@@ -574,12 +437,7 @@
       "file": "entities.test",
       "description": "Ambiguous ampersand.",
       "input": "&rrrraannddom;",
-      "output": [
-        [
-          "Character",
-          "&rrrraannddom;"
-        ]
-      ]
+      "output": [["Character", "&rrrraannddom;"]]
     }
   ]
 }

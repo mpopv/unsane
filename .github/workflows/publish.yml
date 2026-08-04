@@ -37,11 +37,14 @@ jobs:
       - run: npm ci
       - run: npm audit
       - run: npm run lint
+      - run: npm run format:check
       - run: npm test
       - run: npm run build
-      - run: npm run analyze-size
-      - run: npm pack --dry-run
-      - run: npm run smoke:package
-      - run: npm publish --dry-run
-      - run: npm publish --access public --provenance
+      - run: npm run typecheck:built
+      - run: npm run analyze-size:built
+      - run: npm run benchmark:built
+      - run: npm run test:fuzz:built
+      - run: npm run smoke:package:built
+      - run: npm publish --dry-run --ignore-scripts
+      - run: npm publish --access public --provenance --ignore-scripts
       - run: npm run verify:release -- "${GITHUB_REF_NAME#v}"

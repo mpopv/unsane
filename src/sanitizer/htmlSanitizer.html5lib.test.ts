@@ -52,8 +52,7 @@ function serializeReferenceTokens(tokens: Token[]): string {
         (values as Record<string, string>) ?? {},
       )
         .map(
-          ([attribute, value]) =>
-            ` ${attribute}="${escapeAttribute(value)}"`,
+          ([attribute, value]) => ` ${attribute}="${escapeAttribute(value)}"`,
         )
         .join("");
       const tagName = String(name);
@@ -76,7 +75,9 @@ describe("html5lib tokenizer conformance subset", () => {
     it(`${testCase.file}: ${testCase.description}`, () => {
       const tokens = testCase.output as Token[];
       const expected = browserFragment(serializeReferenceTokens(tokens));
-      const actual = browserFragment(sanitize(testCase.input, policyFor(tokens)));
+      const actual = browserFragment(
+        sanitize(testCase.input, policyFor(tokens)),
+      );
 
       expect(actual).toBe(expected);
     });

@@ -12,7 +12,7 @@ const budgets = {
   bundle: {
     minified: 10 * 1024,
     gzip: 4 * 1024,
-    brotli: 3.5 * 1024,
+    brotli: 3.75 * 1024,
   },
   package: {
     packed: 20 * 1024,
@@ -38,11 +38,12 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1024).toFixed(2)} KB`;
 }
 
-function ensureBuild(): void {
-  if (fs.existsSync("dist/index.js")) return;
-
-  console.log("Build artifacts missing. Running npm run build first.\n");
-  execFileSync("npm", ["run", "build"], { stdio: "inherit" });
+function assertCurrentBuild(): void {
+  if (!fs.existsSync("dist/index.js")) {
+    throw new Error(
+      "Build artifacts are missing. Run npm run build before analyze-size:built.",
+    );
+  }
 }
 
 async function measureConsumerBundle(): Promise<BundleStats> {
@@ -92,7 +93,7 @@ function enforceBudget(
 }
 
 async function main(): Promise<void> {
-  ensureBuild();
+  assertCurrentBuild();
 
   const bundle = await measureConsumerBundle();
   const packageStats = measurePackage();

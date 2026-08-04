@@ -6,7 +6,7 @@ import sanitizeHtml from "sanitize-html";
 import { JSDOM } from "jsdom";
 
 const { window } = new JSDOM("");
-const DOMPurify = createDOMPurify(window as unknown as typeof globalThis);
+const DOMPurify = createDOMPurify(window);
 
 const allowedTags = [...DEFAULT_OPTIONS.allowedTags];
 
@@ -14,11 +14,7 @@ const allowedAttributeMap = DEFAULT_OPTIONS.allowedAttributes;
 const globalAttributes = [...(allowedAttributeMap["*"] ?? [])];
 
 const domPurifyAllowedAttrs = Array.from(
-  new Set(
-    Object.entries(allowedAttributeMap).flatMap(([tag, attrs]) =>
-      tag === "*" ? attrs : attrs,
-    ),
-  ),
+  new Set(Object.values(allowedAttributeMap).flat()),
 );
 
 const forbidTags = [
@@ -150,7 +146,7 @@ function expectExecutableOutputInvariants(html: string): void {
   }
 }
 
-describe("htmlSanitizer differential behavior", () => {
+describe("htmlSanitizer benign differential parity", () => {
   for (const testCase of benignCases) {
     it(`matches reference sanitizers for ${testCase.name}`, () => {
       const unsaneResult = canonicalize(sanitize(testCase.html));
@@ -164,9 +160,11 @@ describe("htmlSanitizer differential behavior", () => {
       expect([domPurifyResult, sanitizeHtmlResult]).toContain(unsaneResult);
     });
   }
+});
 
+describe("htmlSanitizer hostile cross-sanitizer safety checks", () => {
   for (const testCase of hostileCases) {
-    it(`matches reference sanitizer invariants for ${testCase.name}`, () => {
+    it(`keeps ${testCase.name} non-executable in every sanitizer`, () => {
       const results = [
         sanitize(testCase.html),
         sanitizeWithDOMPurify(testCase.html),
