@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.0 (2026-08-04)
+
 ### Breaking Changes
 
 - Removed the CommonJS build and `require` export; Unsane is now an ESM-only package for Node.js 22 and later.
@@ -40,7 +42,8 @@
 - Added repository-wide formatting and test/tooling type checks, grouped weekly
   dependency updates, and zero-vulnerability lockfile refreshes.
 - Made release commits roll the Unreleased changelog into a dated version
-  section and reject untracked files before publishing.
+  section, reject untracked files, and merge through protected-main pull
+  requests before tagging.
 - Consolidated CI so quality gates build once and reuse current artifacts while
   supported Node versions retain unit/build coverage.
 - Recalibrated the Brotli runtime ceiling to 3.75 KiB after the entity,

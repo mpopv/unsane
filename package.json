@@ -1,6 +1,6 @@
 {
   "name": "unsane",
-  "version": "0.0.19",
+  "version": "0.1.0",
   "description": "A tiny, zero-dependency, run-anywhere HTML sanitization library written in TypeScript.",
   "type": "module",
   "main": "./dist/index.js",
@@ -93,6 +93,6 @@
     "qs": "^6.15.3"
   },
   "bin": {
-    "unsane": "./bin/unsane.js"
+    "unsane": "bin/unsane.js"
   }
 }
