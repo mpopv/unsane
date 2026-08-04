@@ -8,33 +8,21 @@ export const ALLOWED_PROTOCOLS = new Set(
 );
 
 export const URL_ATTRIBUTES = new Set(
-  "href src cite poster action formaction xlink:href".split(" "),
-);
-
-// List of dangerous content patterns
-export const DANGEROUS_CONTENT =
-  "javascript eval( newfunction settimeout( setinterval( alert( confirm( prompt( document. window. onerror= onclick= onload= onmouseover=".split(
+  "archive background cite classid codebase data dynsrc href itemid longdesc lowsrc manifest poster profile src usemap".split(
     " ",
-  );
+  ),
+);
 
 /* eslint-disable no-control-regex */
 const URL_NORMALIZE_PATTERN =
   /&(#x[0-9a-f]+|#[0-9]+|[a-z][a-z0-9]+);?|[\s\0-\x1f\x7f-\x9f\u200c-\u200f\ufeff]/gi;
-const DANGEROUS_OBFUSCATION_PATTERN =
-  /(?:\\u0000|[\0-\x1f\x7f-\x9f\u200c-\u200d\ufeff])/;
 /* eslint-enable no-control-regex */
 
 const URL_NAMED_ENTITIES: Record<string, string> = {
   amp: "&",
-  apos: "'",
   colon: ":",
-  gt: ">",
-  lpar: "(",
-  lt: "<",
   newline: "\n",
   nbsp: " ",
-  quot: '"',
-  rpar: ")",
   tab: "\t",
 };
 
@@ -75,6 +63,7 @@ function normalizeUrl(value: string): string | undefined {
         const entityName = entity.toLowerCase();
         const numeric = entityName[0] === "#";
         const hexadecimal = entityName[1] === "x";
+        const namedEntity = URL_NAMED_ENTITIES[entityName];
         const decoded = numeric
           ? codePointToUrlChar(
               parseInt(
@@ -83,7 +72,9 @@ function normalizeUrl(value: string): string | undefined {
               ),
               match,
             )
-          : URL_NAMED_ENTITIES[entityName] || match;
+          : typeof namedEntity === "string"
+            ? namedEntity
+            : match;
 
         // Stryker disable next-line ConditionalExpression: reprocessing an unchanged entity only consumes the same fixed pass budget.
         if (decoded === match) return match;
@@ -116,44 +107,3 @@ export function isSafeUrlAttributeValue(value: string): boolean {
   const protocolMatch = normalized.match(/^([a-z][a-z0-9.+-]*):/);
   return !protocolMatch || ALLOWED_PROTOCOLS.has(`${protocolMatch[1]}:`);
 }
-
-/**
- * Check if a value contains dangerous content like script, JavaScript,
- * event handlers or other potentially harmful patterns
- *
- * @param value The string to check
- * @returns True if the value contains dangerous content
- */
-export function containsDangerousContent(value: string): boolean {
-  if (!value) return false;
-
-  // Check for control characters and Unicode obfuscation first (before normalization)
-  if (DANGEROUS_OBFUSCATION_PATTERN.test(value)) {
-    return true;
-  }
-
-  // Normalize for comparison
-  // Stryker disable next-line Regex: replacing one whitespace at a time or an entire run produces the same normalized string.
-  const normalized = value.toLowerCase().replace(/\s+/g, "");
-
-  // Check for URL protocols and only allow from our explicit allowlist
-  const protocolMatch = normalized.match(/^([a-z0-9.+-]+):/i);
-  if (protocolMatch) {
-    const protocol = protocolMatch[1].toLowerCase() + ":";
-    // If a protocol is found but it's not in our allowlist, reject it
-    if (!ALLOWED_PROTOCOLS.has(protocol)) {
-      return true;
-    }
-  }
-
-  // Check for dangerous content patterns
-  for (const pattern of DANGEROUS_CONTENT) {
-    if (normalized.includes(pattern)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-// No default export

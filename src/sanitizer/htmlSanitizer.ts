@@ -22,21 +22,20 @@
  *   element open.
  */
 
-import { DEFAULT_OPTIONS } from "./config.js";
-import { CompiledSanitizer, SanitizerOptions } from "../types.js";
-import { decode, encode, normalizeText } from "../utils/htmlEntities.js";
+import type { CompiledSanitizer, SanitizerOptions } from "../types.js";
+import { normalizeText } from "../utils/htmlEntities.js";
 import {
-  isSafeUrlAttributeValue,
-  isUrlAttribute,
-} from "../utils/securityUtils.js";
-
-type Attribute = [name: string, value: string, hasValue: boolean];
-type NormalizedOptions = {
-  allowedTags: Set<string>;
-  allowedAttributes: Map<string, Set<string>>;
-  maxInputLength: number;
-};
-type OutputAttribute = [name: string, value: string, hasValue: boolean];
+  assertValidInput,
+  compilePolicy,
+  isAllowedElement,
+  serializeAttributes,
+} from "./policy.js";
+import type { CompiledPolicy, ParsedAttribute } from "./policy.js";
+import {
+  findSkippedContentEnd,
+  findTagEnd,
+  shouldSkipElementContent,
+} from "./rawText.js";
 
 const enum ParserState {
   Text,
@@ -55,96 +54,9 @@ const VOID_ELEMENTS = new Set(
   ),
 );
 
-const SKIP_CONTENT_PATTERN =
-  /^(script|style$|iframe$|object$|embed$|template$|textarea$|title$|xmp$|noembed$|noframes$|noscript$|svg$|math$|base$|link$|meta$)/;
-
-// eslint-disable-next-line no-control-regex
-const UNSAFE_ATTRIBUTE_CHARS_PATTERN = /[\0-\x1f\x7f-\x9f\u200c-\u200f\ufeff]/;
-const DANGEROUS_ATTRIBUTE_PATTERN =
-  /^(on|style|(form)?action|xlink:href|srcdoc|(image)?srcset|ping|is$)/;
-
-function invalid(name: string): never {
-  throw new TypeError(`Invalid ${name}.`);
-}
-
-function normalizeStringList(values: unknown, optionName: string): Set<string> {
-  if (!Array.isArray(values)) {
-    invalid(optionName);
-  }
-
-  const normalized = new Set<string>();
-  for (const value of values) {
-    if (typeof value !== "string") {
-      invalid(optionName);
-    }
-    normalized.add(value.toLowerCase());
-  }
-  return normalized;
-}
-
-function normalizeAllowedAttributes(
-  attributes: unknown,
-): Map<string, Set<string>> {
-  if (
-    typeof attributes !== "object" ||
-    attributes === null ||
-    Array.isArray(attributes)
-  ) {
-    invalid("allowedAttributes");
-  }
-
-  const normalized = new Map<string, Set<string>>();
-
-  for (const [tagName, attrs] of Object.entries(attributes)) {
-    const normalizedTagName = tagName.toLowerCase();
-    const normalizedAttrs = normalized.get(normalizedTagName) ?? new Set();
-    for (const attr of normalizeStringList(
-      attrs,
-      `allowedAttributes.${tagName}`,
-    )) {
-      normalizedAttrs.add(attr);
-    }
-    normalized.set(normalizedTagName, normalizedAttrs);
-  }
-
-  return normalized;
-}
-
-function normalizeOptions(options?: SanitizerOptions): NormalizedOptions {
-  if (
-    options !== undefined &&
-    (typeof options !== "object" || options === null || Array.isArray(options))
-  ) {
-    invalid("options");
-  }
-
-  return {
-    allowedTags: normalizeStringList(
-      options?.allowedTags === undefined
-        ? DEFAULT_OPTIONS.allowedTags
-        : options.allowedTags,
-      "allowedTags",
-    ),
-    allowedAttributes: normalizeAllowedAttributes(
-      options?.allowedAttributes === undefined
-        ? DEFAULT_OPTIONS.allowedAttributes
-        : options.allowedAttributes,
-    ),
-    maxInputLength:
-      options?.maxInputLength === undefined
-        ? DEFAULT_OPTIONS.maxInputLength
-        : options.maxInputLength,
-  };
-}
-
-const DEFAULT_NORMALIZED_OPTIONS = normalizeOptions();
-
-function compileOptions(options?: SanitizerOptions): NormalizedOptions {
-  return options === undefined
-    ? DEFAULT_NORMALIZED_OPTIONS
-    : normalizeOptions(options);
-}
-
+const PARAGRAPH_CLOSING_START_PATTERN =
+  /^(address|article|aside|blockquote|div|dl|fieldset|footer|form|h[1-6]|header|hgroup|hr|main|menu|nav|ol|p|pre|section|table|ul)$/;
+const HEADING_PATTERN = /^h[1-6]$/;
 function readTagName(html: string, position: number): string {
   let end = position + 1;
   while (end < html.length && /[a-zA-Z0-9\-_]/.test(html[end])) {
@@ -158,147 +70,6 @@ function sanitizeText(text: string): string {
   return normalizeText(text);
 }
 
-function findTagEnd(html: string, position: number): number {
-  const tagEnd = html.indexOf(">", position);
-  return tagEnd === -1 ? html.length - 1 : tagEnd;
-}
-
-function findElementContentEnd(
-  html: string,
-  tagName: string,
-  openTagEnd: number,
-  tagStart: number,
-): number {
-  if (html.slice(tagStart, openTagEnd).trimEnd().endsWith("/")) {
-    return openTagEnd;
-  }
-
-  const closingTag = new RegExp(`</${tagName}`, "gi");
-  closingTag.lastIndex = openTagEnd + 1;
-  const closeTagStart = closingTag.exec(html)?.index ?? -1;
-
-  if (closeTagStart === -1) {
-    return html.length - 1;
-  }
-
-  return findTagEnd(html, closeTagStart);
-}
-
-function shouldSkipElementContent(tagName: string): boolean {
-  return SKIP_CONTENT_PATTERN.test(tagName);
-}
-
-function assertInputWithinLimit(html: string, maxInputLength: number): void {
-  if (
-    typeof maxInputLength !== "number" ||
-    maxInputLength < 0 ||
-    Number.isNaN(maxInputLength)
-  ) {
-    throw new RangeError("maxInputLength must be a non-negative number.");
-  }
-
-  if (Number.isFinite(maxInputLength) && html.length > maxInputLength) {
-    throw new RangeError(
-      `Input length ${html.length} exceeds maxInputLength ${maxInputLength}.`,
-    );
-  }
-}
-
-function isBlankTarget(value: string): boolean {
-  return value.trim().toLowerCase() === "_blank";
-}
-
-function mergeSafeRel(value: string): string {
-  const relTokens = value
-    .split(/\s+/)
-    .map((token) => token.toLowerCase())
-    .filter(Boolean);
-
-  for (const requiredToken of ["noopener", "noreferrer"]) {
-    if (!relTokens.includes(requiredToken)) {
-      relTokens.push(requiredToken);
-    }
-  }
-
-  return relTokens.join(" ");
-}
-
-/**
- * Process and filter attributes for a tag, removing any dangerous attributes
- *
- * @param attrs Array of attributes as [name, value] pairs
- * @param tagName The tag name
- * @param allowedAttributesMap Map of tag names to allowed attributes
- * @returns String of sanitized attributes
- */
-function processAttributes(
-  attrs: Attribute[],
-  tagName: string,
-  allowedAttributesMap: Map<string, Set<string>>,
-): string {
-  // Get tag-specific allowed attributes
-  const tagAllowedAttrs = allowedAttributesMap.get(tagName);
-
-  // Get global attributes (allowed for all tags)
-  const globalAttrs = allowedAttributesMap.get("*");
-
-  const outputAttrs: OutputAttribute[] = [];
-  const emittedAttrs = new Set<string>();
-  let hasBlankTarget = false;
-
-  // Process each attribute
-  for (let [name, value, hasValue] of attrs) {
-    value = decode(value);
-
-    // Skip the attribute if it's not in the allowlist or it's a dangerous attribute pattern
-    if (
-      (!tagAllowedAttrs?.has(name) && !globalAttrs?.has(name)) ||
-      DANGEROUS_ATTRIBUTE_PATTERN.test(name)
-    ) {
-      continue;
-    }
-
-    // Filter URL-bearing attributes with URL-specific protocol normalization.
-    if (isUrlAttribute(name)) {
-      if (!isSafeUrlAttributeValue(value)) {
-        continue;
-      }
-    } else if (value && UNSAFE_ATTRIBUTE_CHARS_PATTERN.test(value)) {
-      continue;
-    }
-
-    if (emittedAttrs.has(name)) {
-      continue;
-    }
-    emittedAttrs.add(name);
-
-    if (name === "target" && hasValue && isBlankTarget(value)) {
-      value = "_blank";
-      hasBlankTarget = true;
-    }
-
-    outputAttrs.push([name, value, hasValue]);
-  }
-
-  if (tagName === "a" && hasBlankTarget) {
-    const relAttr = outputAttrs.find(([name]) => name === "rel");
-
-    if (relAttr) {
-      relAttr[1] = mergeSafeRel(relAttr[1]);
-    } else {
-      outputAttrs.push(["rel", "noopener noreferrer", true]);
-    }
-  }
-
-  return outputAttrs
-    .map(([name, value, hasValue]) =>
-      hasValue
-        ? ` ${name}="${encode(value, { escapeOnly: true })}"`
-        : ` ${name}`,
-    )
-    .join("");
-}
-
 /**
  * Main sanitizer function - takes HTML and returns sanitized HTML
  *
@@ -307,7 +78,7 @@ function processAttributes(
  * @returns Sanitized HTML string
  */
 export function sanitize(html: string, options?: SanitizerOptions): string {
-  return sanitizeWithOptions(html, compileOptions(options));
+  return sanitizeWithPolicy(html, compilePolicy(options));
 }
 
 /**
@@ -317,19 +88,12 @@ export function sanitize(html: string, options?: SanitizerOptions): string {
  * later caller mutations cannot change the compiled policy.
  */
 export function createSanitizer(options?: SanitizerOptions): CompiledSanitizer {
-  const compiledOptions = compileOptions(options);
-  return (html: string) => sanitizeWithOptions(html, compiledOptions);
+  const policy = compilePolicy(options);
+  return (html: string) => sanitizeWithPolicy(html, policy);
 }
 
-function sanitizeWithOptions(
-  html: string,
-  mergedOptions: NormalizedOptions,
-): string {
-  if (typeof html !== "string") {
-    invalid("html");
-  }
-
-  assertInputWithinLimit(html, mergedOptions.maxInputLength);
+function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
+  assertValidInput(html, policy.maxInputLength);
 
   if (!html.includes("<")) return sanitizeText(html);
 
@@ -351,7 +115,7 @@ function sanitizeWithOptions(
   let attrValueStart = -1;
   let isClosingTag = false;
   let inQuote = "";
-  let currentAttrs: Attribute[] = [];
+  let currentAttrs: ParsedAttribute[] = [];
   let isSelfClosing = false;
 
   // Helper function to emit text
@@ -384,10 +148,47 @@ function sanitizeWithOptions(
     }
   }
 
+  function closeLatestOptionalElement(
+    tagNames: string[],
+    scopeBoundaries: string[] = [],
+  ): void {
+    let elementIndex = -1;
+    let boundaryIndex = -1;
+
+    for (const tagName of tagNames) {
+      elementIndex = Math.max(elementIndex, openTagIndex(tagName));
+    }
+    for (const tagName of scopeBoundaries) {
+      boundaryIndex = Math.max(boundaryIndex, openTagIndex(tagName));
+    }
+
+    if (elementIndex > boundaryIndex) closeStackFrom(elementIndex);
+  }
+
+  function repairTreeForStartTag(tagName: string): void {
+    if (PARAGRAPH_CLOSING_START_PATTERN.test(tagName)) {
+      closeLatestOptionalElement(["p"]);
+    }
+
+    if (HEADING_PATTERN.test(tagName)) {
+      closeLatestOptionalElement(["h1", "h2", "h3", "h4", "h5", "h6"]);
+    } else if (tagName === "li") {
+      closeLatestOptionalElement(["li"], ["menu", "ol", "ul"]);
+    } else if (tagName === "dt" || tagName === "dd") {
+      closeLatestOptionalElement(["dt", "dd"], ["dl"]);
+    } else if (/^(tbody|tfoot|thead)$/.test(tagName)) {
+      closeLatestOptionalElement(["tbody", "tfoot", "thead"], ["table"]);
+    } else if (tagName === "tr") {
+      closeLatestOptionalElement(["tr"], ["table", "tbody", "tfoot", "thead"]);
+    } else if (tagName === "td" || tagName === "th") {
+      closeLatestOptionalElement(["td", "th"], ["tr"]);
+    }
+  }
+
   // Function to handle a start tag
   function handleStartTag(
     tagName: string,
-    attrs: Attribute[],
+    attrs: ParsedAttribute[],
     selfClosing: boolean,
   ) {
     // Skip dangerous raw-content and namespace containers entirely for security.
@@ -395,20 +196,10 @@ function sanitizeWithOptions(
       return;
     }
 
-    if (mergedOptions.allowedTags.has(tagName)) {
-      // Special handling for HTML structure - div inside p is invalid HTML
-      if (tagName === "div") {
-        const pIndex = openTagIndex("p");
-        if (pIndex >= 0) {
-          closeStackFrom(pIndex);
-        }
-      }
+    if (isAllowedElement(tagName, policy)) {
+      repairTreeForStartTag(tagName);
 
-      const attrsStr = processAttributes(
-        attrs,
-        tagName,
-        mergedOptions.allowedAttributes,
-      );
+      const attrsStr = serializeAttributes(attrs, tagName, policy);
 
       if (VOID_ELEMENTS.has(tagName)) {
         output.push(`<${tagName}${attrsStr} />`);
@@ -424,7 +215,7 @@ function sanitizeWithOptions(
 
   // Function to handle an end tag
   function handleEndTag(tagName: string) {
-    if (mergedOptions.allowedTags.has(tagName) && !VOID_ELEMENTS.has(tagName)) {
+    if (policy.allowedTags.has(tagName) && !VOID_ELEMENTS.has(tagName)) {
       // Find the matching opening tag in the stack
       const index = openTagIndex(tagName);
 
@@ -501,7 +292,7 @@ function sanitizeWithOptions(
           ) {
             const openTagEnd = findTagEnd(html, position);
             position =
-              findElementContentEnd(
+              findSkippedContentEnd(
                 html,
                 potentialTagName,
                 openTagEnd,

@@ -15,7 +15,7 @@ export default [
     ignores: ["dist/**", "coverage/**", "node_modules/**"],
   },
   {
-    files: ["**/*.js", "**/*.ts"],
+    files: ["**/*.{js,mjs,ts}"],
     languageOptions: {
       parser: tsParser,
       parserOptions: {
@@ -36,25 +36,17 @@ export default [
       ...importRecommended,
       ...importTypescript,
       ...prettierRules,
+      "import/no-unresolved": ["error", { ignore: ["(?:^|/)dist/"] }],
     },
     settings: {
-      "import/extensions": [".js", ".ts"],
+      "import/extensions": [".js", ".mjs", ".ts"],
       "import/resolver": {
         typescript: {
-          project: ["./tsconfig.json"],
+          project: ["./tsconfig.json", "./tsconfig.test.json"],
         },
         node: {
-          extensions: [".js", ".ts"],
+          extensions: [".js", ".mjs", ".ts"],
         },
-      },
-    },
-  },
-  {
-    files: ["**/*.test.ts", "**/*.test.js"],
-    languageOptions: {
-      globals: {
-        ...globals.node,
-        ...globals.vitest,
       },
     },
   },

@@ -6,7 +6,7 @@ A tiny, zero-dependency, run-anywhere HTML sanitization library written in TypeS
 
 ## Features
 
-- **Lightweight**: ~8.9KB minified runtime import closure, ~3.5KB minified+gzipped
+- **Lightweight**: Runtime and published-package size budgets are enforced in CI
 - **Zero dependencies**: Includes internal HTML entity encoder/decoder and state machine tokenizer
 - **Run anywhere**: Doesn't rely on DOM APIs, JSDOM, or Node APIs, so you can use in any environment
 
@@ -52,7 +52,7 @@ const options = {
   allowedAttributes: {
     a: ["href", "target"],
     img: ["src", "alt", "width", "height"],
-    "*": ["id", "class"], // Attributes allowed on all elements
+    "*": ["class"], // Attributes allowed on all elements
   },
 };
 
@@ -85,11 +85,19 @@ Available options:
   Defaults to `1_000_000` characters. Set to `Infinity` only for trusted,
   already-bounded inputs.
 
-Custom allowlists cannot re-enable document-active elements (`base`, `link`, or
-`meta`) or active attributes that require a separate parser (`is`, `ping`,
-`srcdoc`, `srcset`, and `imagesrcset`). Unsane strips these capabilities even
-when explicitly listed. Inert custom elements, `data-*`, and `aria-*`
-attributes remain supported.
+Custom allowlists use a fixed capability model. Unsane strips document-state
+elements (`html`, `head`, `body`, `base`, `link`, `meta`, and `form`),
+upgradeable custom-element names containing `-`, event/CSS attributes,
+URL-list attributes, form-association attributes, browsing-state attributes,
+namespace transitions, and other specialized active grammars even when they
+are explicitly listed. Unknown non-upgradeable elements, `data-*`, `aria-*`,
+and other explicitly allowed inert attributes remain supported.
+
+Single-URL attributes, including legacy attributes such as `background`,
+`dynsrc`, and `lowsrc`, all use the fixed protocol validator. Browsing-context
+targets are limited to `_self` and `_blank`; `_blank` removes `opener` and adds
+`noopener noreferrer`. Multi-URL and embedded-document grammars remain denied
+instead of receiving incomplete parsing.
 
 URL-bearing attributes use a fixed conservative protocol allowlist:
 `http:`, `https:`, `mailto:`, `tel:`, `ftp:`, and `sms:`. Custom protocol
@@ -112,6 +120,9 @@ when `rel` is omitted from a custom allowlist.
   instead of parsed.
 - SVG and MathML are outside the supported safe subset and are removed rather
   than partially sanitized.
+- `id` is not allowed by default because named DOM properties can collide with
+  application globals. If a custom policy enables `id` or `name`, namespace
+  their values before inserting the result into a document.
 - If you expand the tag or attribute allowlists, add app-specific tests for the
   markup you now accept.
 
@@ -133,6 +144,14 @@ const escaped = escape('<script>"alert"</script>');
 // -> '&lt;script&gt;&quot;alert&quot;&lt;/script&gt;'
 ```
 
+Numeric references follow the HTML replacement rules for nulls, surrogates,
+out-of-range values, and the Windows-1252 compatibility range. During
+sanitization, named references outside Unsane's compact built-in decoder are
+preserved for the browser to interpret, so their visible value is not changed
+and the runtime does not need to ship the full multi-thousand-entry entity
+table. URL and other active attributes remain subject to conservative
+capability-specific validation.
+
 ### CLI Usage
 
 You can also sanitize input directly from the command line:
@@ -145,14 +164,17 @@ This reads HTML from `stdin` and prints the sanitized result to `stdout`.
 
 ## Runtime Size
 
-This library is designed to be lightweight while providing comprehensive HTML sanitization. The size gate builds the actual tree-shaken consumer entry point and checks the package that npm would publish:
+This library is designed to stay lightweight while providing conservative HTML
+sanitization. The size gate builds the actual tree-shaken consumer entry point
+and checks the package that npm would publish. It enforces these ceilings:
 
-| Metric                       | Size              |
-| ---------------------------- | ----------------- |
-| Minified consumer ESM bundle | ~6.82 KB          |
-| Minified + gzip              | ~2.98 KB          |
-| Minified + Brotli            | ~2.73 KB          |
-| npm tarball / unpacked size  | ~15.72 / 82.99 KB |
+| Metric                       | Budget       |
+| ---------------------------- | ------------ |
+| Minified consumer ESM bundle | 10 KiB       |
+| Minified + gzip              | 4 KiB        |
+| Minified + Brotli            | 3.75 KiB     |
+| npm tarball / unpacked size  | 20 / 100 KiB |
+| Published file count         | 32 files     |
 
 You can check the package size yourself with:
 
@@ -166,7 +188,6 @@ against representative plain-text, safe-fragment, attribute-heavy, raw-content,
 and hostile-nesting workloads with:
 
 ```bash
-npm run build
 npm run benchmark
 ```
 

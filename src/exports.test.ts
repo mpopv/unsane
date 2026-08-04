@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { createSanitizer, sanitize, escape, encode, decode } from "./index.js";
 import type {
   CompiledSanitizer,
+  EncodeOptions,
   SanitizerOptions,
-  Sanitizer,
 } from "./index.js";
 
 describe("Library exports", () => {
@@ -19,18 +19,18 @@ describe("Library exports", () => {
     const input = "<div>test</div>";
 
     // Test sanitize function
-    expect(sanitize(input)).toBeTruthy();
-    expect(sanitize(input, {})).toBeTruthy();
-    expect(sanitize(input, { allowedTags: ["div"] })).toBeTruthy();
+    expect(sanitize(input)).toBe("<div>test</div>");
+    expect(sanitize(input, {})).toBe("<div>test</div>");
+    expect(sanitize(input, { allowedTags: ["div"] })).toBe("<div>test</div>");
 
     // Test escape function
-    expect(escape(input)).toBeTruthy();
+    expect(escape(input)).toBe("&lt;div&gt;test&lt;/div&gt;");
 
     // Test encode function
-    expect(encode(input)).toBeTruthy();
+    expect(encode(input)).toBe("&#x3C;div&#x3E;test&#x3C;/div&#x3E;");
 
     // Test decode function
-    expect(decode(input)).toBeTruthy();
+    expect(decode(input)).toBe(input);
   });
 
   it("should properly type SanitizerOptions", () => {
@@ -41,16 +41,14 @@ describe("Library exports", () => {
         "*": ["id"],
       },
     };
-    expect(sanitize('<div class="test">content</div>', options)).toBeTruthy();
+    expect(sanitize('<div class="test">content</div>', options)).toBe(
+      '<div class="test">content</div>',
+    );
   });
 
-  it("should properly type Sanitizer interface", () => {
-    const customSanitizer: Sanitizer = {
-      sanitize: (html: string) => {
-        return html; // Simple pass-through for type checking
-      },
-    };
-    expect(customSanitizer.sanitize("<div>test</div>")).toBeTruthy();
+  it("should export the encoder options type", () => {
+    const options: EncodeOptions = { useNamedReferences: true };
+    expect(encode("<", options)).toBe("&lt;");
   });
 
   it("should export the compiled sanitizer type", () => {

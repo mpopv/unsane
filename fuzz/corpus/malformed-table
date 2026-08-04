@@ -1,0 +1,1 @@
+<table><tr><td><svg><script>alert(1)</script></svg><img src=x onerror=alert(1)>

@@ -11,7 +11,7 @@ interface VectorCase {
 const vectors: VectorCase[] = [
   {
     name: "IMG javascript protocol (double quoted)",
-    html: '<IMG SRC="javascript:alert(\'XSS\');">',
+    html: "<IMG SRC=\"javascript:alert('XSS');\">",
     expected: "<img />",
   },
   {
@@ -36,7 +36,7 @@ const vectors: VectorCase[] = [
   },
   {
     name: "IMG javascript protocol with entity encoding",
-    html: "<IMG SRC=\"javascript:alert(&#34;XSS&#34;)\">",
+    html: '<IMG SRC="javascript:alert(&#34;XSS&#34;)">',
     expected: "<img />",
   },
   {

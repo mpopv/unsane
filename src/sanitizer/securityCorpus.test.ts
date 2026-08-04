@@ -84,7 +84,7 @@ describe("security corpus", () => {
 
   it("preserves suspicious words when they are inert text", () => {
     expect(
-      sanitize("<p>javascript alert script onclick= are text here</p>")
+      sanitize("<p>javascript alert script onclick= are text here</p>"),
     ).toBe("<p>javascript alert script onclick= are text here</p>");
   });
 });

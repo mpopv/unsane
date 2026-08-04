@@ -2,8 +2,5 @@
 
 export { createSanitizer, sanitize } from "./sanitizer/htmlSanitizer.js";
 export { escape, encode, decode } from "./utils/htmlEntities.js";
-export type {
-  CompiledSanitizer,
-  SanitizerOptions,
-  Sanitizer,
-} from "./types.js";
+export type { EncodeOptions } from "./utils/htmlEntities.js";
+export type { CompiledSanitizer, SanitizerOptions } from "./types.js";

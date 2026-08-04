@@ -95,7 +95,7 @@ const attributeValues = [
   "vbscript:msgbox(1)",
   "hello &lt;script&gt;",
   "&amp;amp;",
-  "\"quoted\"",
+  '"quoted"',
   "'single'",
   "unterminated",
 ] as const;
@@ -151,9 +151,7 @@ const structuredElementArbitrary = fc
     if (closeStyle === "self") return `${open}${body}`;
     if (closeStyle === "missing") return `${open}${body}`;
 
-    return `${open}${body}</${
-      closeStyle === "matching" ? tagName : "div"
-    }>`;
+    return `${open}${body}</${closeStyle === "matching" ? tagName : "div"}>`;
   });
 
 const rawContentArbitrary = fc
@@ -174,9 +172,7 @@ const rawContentArbitrary = fc
   )
   .map(
     ([tagName, body, close]) =>
-      `<${tagName}>${body}${
-        close ? `</${tagName}>` : ""
-      }<p>safe sibling</p>`,
+      `<${tagName}>${body}${close ? `</${tagName}>` : ""}<p>safe sibling</p>`,
   );
 
 const tokenSoupArbitrary = fc
@@ -297,7 +293,9 @@ function expectSanitizerInvariants(
 
   const resanitized = sanitize(output, options);
   expect(resanitized, input).toBe(output);
-  expect(resanitized.length, input).toBeLessThanOrEqual(output.length * 8 + 256);
+  expect(resanitized.length, input).toBeLessThanOrEqual(
+    output.length * 8 + 256,
+  );
   expectSafeTagTokens(resanitized, input);
   expect(balancedAllowedTags(resanitized), input).toBe(true);
 

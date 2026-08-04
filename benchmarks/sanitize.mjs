@@ -1,5 +1,7 @@
 import { performance } from "node:perf_hooks";
-import { sanitize } from "../dist/index.js";
+import { createSanitizer } from "../dist/index.js";
+
+const sanitize = createSanitizer();
 
 const workloads = [
   {
@@ -48,13 +50,13 @@ function benchmark(workload) {
   const warmupIterations = Math.min(workload.iterations, 500);
 
   for (let index = 0; index < warmupIterations; index++) {
-    checksum += sanitize(workload.input, { maxInputLength: Infinity }).length;
+    checksum += sanitize(workload.input).length;
   }
 
   const samples = Array.from({ length: 3 }, () => {
     const start = performance.now();
     for (let index = 0; index < workload.iterations; index++) {
-      checksum += sanitize(workload.input, { maxInputLength: Infinity }).length;
+      checksum += sanitize(workload.input).length;
     }
     return performance.now() - start;
   });
