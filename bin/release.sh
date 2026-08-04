@@ -6,6 +6,7 @@ set -euo pipefail
 VERSION=${1:-}
 MAIN_BRANCH=${MAIN_BRANCH:-main}
 REMOTE=${REMOTE:-origin}
+RELEASE_BRANCH="release/v$VERSION"
 NOTES_FILE=$(mktemp)
 
 cleanup() {
@@ -29,12 +30,6 @@ if ! command -v gh >/dev/null 2>&1; then
   exit 1
 fi
 
-current_branch=$(git rev-parse --abbrev-ref HEAD)
-if [[ "$current_branch" != "$MAIN_BRANCH" ]]; then
-  echo "Release must run from $MAIN_BRANCH; current branch is $current_branch."
-  exit 1
-fi
-
 if [[ -n "$(git status --porcelain --untracked-files=all)" ]]; then
   echo "Working tree must be clean before release."
   exit 1
@@ -45,12 +40,17 @@ git fetch "$REMOTE" "$MAIN_BRANCH" --tags
 local_head=$(git rev-parse HEAD)
 remote_head=$(git rev-parse "$REMOTE/$MAIN_BRANCH")
 if [[ "$local_head" != "$remote_head" ]]; then
-  echo "Local $MAIN_BRANCH must match $REMOTE/$MAIN_BRANCH before release."
+  echo "Release must start from $REMOTE/$MAIN_BRANCH."
   exit 1
 fi
 
 if git rev-parse "v$VERSION" >/dev/null 2>&1; then
   echo "Tag v$VERSION already exists."
+  exit 1
+fi
+
+if git ls-remote --exit-code --heads "$REMOTE" "$RELEASE_BRANCH" >/dev/null 2>&1; then
+  echo "Release branch $RELEASE_BRANCH already exists on $REMOTE."
   exit 1
 fi
 
@@ -69,12 +69,47 @@ npm run test:fuzz:built
 npm run smoke:package:built
 npm run release:notes -- "$VERSION" > "$NOTES_FILE"
 
-npm version "$VERSION" -m "chore: release v%s"
+git switch -c "$RELEASE_BRANCH"
+npm version "$VERSION" --no-git-tag-version
+git add package.json package-lock.json CHANGELOG.md
+git commit -m "chore: release v$VERSION"
 npm publish --dry-run --ignore-scripts
-git push "$REMOTE" "$MAIN_BRANCH" --follow-tags
+git push -u "$REMOTE" "$RELEASE_BRANCH"
+
+PR_URL=$(gh pr create \
+  --base "$MAIN_BRANCH" \
+  --head "$RELEASE_BRANCH" \
+  --title "chore: release v$VERSION" \
+  --body "Prepare v$VERSION and roll the Unreleased changelog into a dated release section.")
+
+check_count=0
+for _ in {1..30}; do
+  check_count=$(gh pr view "$PR_URL" --json statusCheckRollup --jq '.statusCheckRollup | length')
+  if (( check_count > 0 )); then
+    break
+  fi
+  sleep 2
+done
+
+if (( check_count == 0 )); then
+  echo "No checks appeared for $PR_URL."
+  exit 1
+fi
+
+gh pr checks "$PR_URL" --watch --interval 10
+gh pr merge "$PR_URL" --merge
+
+git fetch "$REMOTE" "$MAIN_BRANCH"
+release_commit=$(git rev-parse "$REMOTE/$MAIN_BRANCH")
+if ! git merge-base --is-ancestor HEAD "$release_commit"; then
+  echo "$REMOTE/$MAIN_BRANCH does not contain the release commit."
+  exit 1
+fi
+
+git tag -a "v$VERSION" "$release_commit" -m "v$VERSION"
+git push "$REMOTE" "v$VERSION"
 
 gh release create "v$VERSION" \
-  --target "$MAIN_BRANCH" \
   --title "v$VERSION" \
   --notes-file "$NOTES_FILE"
 
