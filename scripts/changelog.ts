@@ -28,6 +28,17 @@ export function extractUnreleased(changelog: string): string {
   return unreleasedSection(changelog).notes;
 }
 
+function hasVersionSection(changelog: string, version: string): boolean {
+  const headers = [`## ${version}`, `## v${version}`];
+  return changelog
+    .split(/\r?\n/)
+    .some((line) =>
+      headers.some(
+        (header) => line === header || line.startsWith(`${header} `),
+      ),
+    );
+}
+
 export function rollUnreleased(
   changelog: string,
   version: string,
@@ -39,11 +50,7 @@ export function rollUnreleased(
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     throw new Error(`Invalid release date: ${date}`);
   }
-  if (
-    new RegExp(`^## v?${version.replace(/\./g, "\\.")}(?: |$)`, "m").test(
-      changelog,
-    )
-  ) {
+  if (hasVersionSection(changelog, version)) {
     throw new Error(`CHANGELOG.md already contains version ${version}.`);
   }
 

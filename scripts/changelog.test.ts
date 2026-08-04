@@ -51,6 +51,13 @@ describe("changelog release helpers", () => {
     expect(() => rollUnreleased(changelog, "0.0.1", "2026-08-03")).toThrow(
       "CHANGELOG.md already contains version 0.0.1.",
     );
+    expect(() =>
+      rollUnreleased(
+        `${changelog}\n## v0.1.0-beta.1\n`,
+        "0.1.0-beta.1",
+        "2026-08-03",
+      ),
+    ).toThrow("CHANGELOG.md already contains version 0.1.0-beta.1.");
     expect(() => extractUnreleased("# Changelog\n")).toThrow(
       "CHANGELOG.md is missing an Unreleased section.",
     );
