@@ -39,9 +39,7 @@ const ESCAPE_CHARS = /["'&<>`]/g;
 const TEXT_NORMALIZE_PATTERN = /[\0-\x1f\x7f-\x9f"'&<>`]/g;
 /* eslint-enable no-control-regex */
 
-/**
- * Convert a code point to a string, handling surrogate pairs
- */
+/** Convert an HTML numeric reference code point to a string. */
 function codePointToString(codePoint: number): string {
   if (codePoint === 0 || codePoint > 0x10ffff) return "\uFFFD";
   if (codePoint >= 0xd800 && codePoint <= 0xdfff) return "\uFFFD";
@@ -50,15 +48,7 @@ function codePointToString(codePoint: number): string {
     return WINDOWS_1252_REPLACEMENTS[codePoint - 0x80];
   }
 
-  if (codePoint > 0xffff) {
-    codePoint -= 0x10000;
-    return String.fromCharCode(
-      0xd800 + (codePoint >> 10),
-      0xdc00 + (codePoint & 0x3ff),
-    );
-  }
-
-  return String.fromCharCode(codePoint);
+  return String.fromCodePoint(codePoint);
 }
 
 function decodeReference(
@@ -135,8 +125,6 @@ export interface EncodeOptions {
  * @returns Encoded text
  */
 export function encode(text: string, options: EncodeOptions = {}): string {
-  if (!text) return "";
-
   const {
     useNamedReferences = false,
     decimal = false,
@@ -145,7 +133,7 @@ export function encode(text: string, options: EncodeOptions = {}): string {
 
   const pattern = encodeEverything ? /./g : /["&<>']/g;
 
-  return String(text).replace(pattern, (char) => {
+  return text.replace(pattern, (char) => {
     // Use named references if requested and available
     if (useNamedReferences && CHAR_TO_NAMED[char]) {
       return `&${CHAR_TO_NAMED[char]};`;
@@ -164,8 +152,7 @@ export function encode(text: string, options: EncodeOptions = {}): string {
  * Uses named references for the minimal context-safe character set.
  */
 export function escape(text: string): string {
-  if (!text) return "";
-  return String(text).replace(ESCAPE_CHARS, escapeCharacter);
+  return text.replace(ESCAPE_CHARS, escapeCharacter);
 }
 
 /**
@@ -173,8 +160,6 @@ export function escape(text: string): string {
  * Unsane's public helpers and security checks.
  */
 export function decode(text: string): string {
-  if (!text) return "";
-
   return text.replace(REFERENCE_PATTERN, (reference, index: number) => {
     return (
       decodeReference(reference, text[index + reference.length] ?? "", false) ??

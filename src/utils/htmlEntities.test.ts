@@ -23,13 +23,6 @@ describe("HTML entity helpers", () => {
     ])("encodes %j with %j", (input, options, expected) => {
       expect(encode(input, options)).toBe(expected);
     });
-
-    it("stringifies non-string runtime inputs", () => {
-      expect(encode(123 as unknown as string)).toBe("123");
-      expect(encode(true as unknown as string)).toBe("true");
-      expect(encode({} as unknown as string)).toBe("[object Object]");
-      expect(encode(null as unknown as string)).toBe("");
-    });
   });
 
   describe("escape", () => {
