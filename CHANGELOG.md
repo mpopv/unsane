@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improvements
+
+- Reused tokenizer scratch storage and removed redundant parser state and end-tag checks.
+- Simplified entity helpers around their string-only API and delegated Unicode scalar conversion to the platform.
+
 ## 0.1.0 (2026-08-04)
 
 ### Breaking Changes

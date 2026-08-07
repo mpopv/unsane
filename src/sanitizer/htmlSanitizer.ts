@@ -115,8 +115,7 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
   let attrValueStart = -1;
   let isClosingTag = false;
   let inQuote = "";
-  let currentAttrs: ParsedAttribute[] = [];
-  let isSelfClosing = false;
+  const currentAttrs: ParsedAttribute[] = [];
 
   // Helper function to emit text
   function emitText(end: number): void {
@@ -215,14 +214,8 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
 
   // Function to handle an end tag
   function handleEndTag(tagName: string) {
-    if (policy.allowedTags.has(tagName) && !VOID_ELEMENTS.has(tagName)) {
-      // Find the matching opening tag in the stack
-      const index = openTagIndex(tagName);
-
-      if (index >= 0) {
-        closeStackFrom(index);
-      }
-    }
+    const index = openTagIndex(tagName);
+    if (index >= 0) closeStackFrom(index);
   }
 
   function takeAttributeValue(end: number): void {
@@ -231,7 +224,7 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
     attrValueStart = -1;
   }
 
-  function finishTag(selfClosing = isSelfClosing): void {
+  function finishTag(selfClosing = false): void {
     if (isClosingTag) {
       handleEndTag(tagNameBuffer);
     } else {
@@ -241,9 +234,8 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
     tagNameBuffer = "";
     attrNameBuffer = "";
     attrValueStart = -1;
-    currentAttrs = [];
+    currentAttrs.length = 0;
     isClosingTag = false;
-    isSelfClosing = false;
     state = ParserState.Text;
     textStart = position + 1;
   }
@@ -305,8 +297,6 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
 
           tagNameBuffer = char.toLowerCase();
           state = ParserState.TagName;
-          currentAttrs = [];
-          isSelfClosing = false;
         } else {
           // Not a valid tag, revert to text
           textStart = position - 1;
@@ -322,7 +312,6 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
         } else if (char === ">") {
           finishTag();
         } else if (char === "/" && !isClosingTag) {
-          isSelfClosing = true;
           state = ParserState.TagEnd;
         }
         break;
@@ -348,7 +337,6 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
             currentAttrs.push([attrNameBuffer, "", false]);
             attrNameBuffer = "";
           }
-          isSelfClosing = true;
           state = ParserState.TagEnd;
         }
         break;
