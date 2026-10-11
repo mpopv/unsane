@@ -6,7 +6,7 @@ import {
   normalizeAttributeValue,
 } from "../utils/htmlEntities.js";
 import {
-  isSafeUrlAttributeValue,
+  checkUrlAttributeValue,
   isUrlAttribute,
 } from "../utils/securityUtils.js";
 
@@ -191,9 +191,11 @@ export function serializeAttributes(
       continue;
     }
 
-    const urlAttribute = isUrlAttribute(name);
-    if (urlAttribute) {
-      if (!isSafeUrlAttributeValue(value)) continue;
+    let keepReferences = true;
+    if (isUrlAttribute(name)) {
+      const urlCheck = checkUrlAttributeValue(value);
+      if (urlCheck === undefined) continue;
+      keepReferences = urlCheck;
     } else if (value && UNSAFE_ATTRIBUTE_CHARS_PATTERN.test(value)) {
       continue;
     }
@@ -212,9 +214,9 @@ export function serializeAttributes(
       name,
       value,
       hasValue,
-      urlAttribute || name === "target" || name === "rel"
-        ? undefined
-        : normalizeAttributeValue(rawValue),
+      keepReferences && name !== "target" && name !== "rel"
+        ? normalizeAttributeValue(rawValue)
+        : undefined,
     ]);
   }
 

@@ -152,6 +152,28 @@ describe("htmlSanitizer malformed parser corpus", () => {
     ).toBe(output);
   });
 
+  it("keeps URL references and protocol-relative checks aligned with browsers", () => {
+    const options = { allowedTags: ["a"], allowedAttributes: { a: ["href"] } };
+    const resolvedHref = (html: string) =>
+      new JSDOM(`<body>${html}</body>`, {
+        url: "https://app.test/page",
+      }).window.document.querySelector("a")?.href;
+
+    const preserved = '<a href="/docs?x=1&sol;2&amp;y=&copy;">x</a>';
+    expect(sanitize(preserved, options)).toBe(preserved);
+    expect(resolvedHref(sanitize(preserved, options))).toBe(
+      resolvedHref(preserved),
+    );
+
+    for (const href of ["\\\\evil.test", "/\\evil.test", "\\/evil.test"]) {
+      expect(new URL(href, "https://app.test/").host).toBe("evil.test");
+      expect(sanitize(`<a href="${href}">x</a>`, options)).toBe("<a>x</a>");
+    }
+
+    const ambiguous = sanitize('<a href="/&sol;evil.test">x</a>', options);
+    expect(resolvedHref(ambiguous)).toBe("https://app.test/&sol;evil.test");
+  });
+
   it("preserves whitespace that browsers keep in text", () => {
     for (const input of [
       "first line\nsecond line",

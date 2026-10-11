@@ -102,8 +102,9 @@ instead of receiving incomplete parsing.
 URL-bearing attributes use a fixed conservative protocol allowlist:
 `http:`, `https:`, `mailto:`, `tel:`, `ftp:`, and `sms:`. Custom protocol
 allowlists are intentionally not part of the public API. Relative URLs and
-fragments are allowed, while protocol-relative URLs (`//example.com`) are
-removed.
+fragments are allowed, while protocol-relative URLs (`//example.com`, including
+the `\\example.com` and `/\example.com` forms that browsers read the same way)
+are removed.
 
 Links with `target="_blank"` are emitted with `rel="noopener noreferrer"` even
 when `rel` is omitted from a custom allowlist.
@@ -149,8 +150,10 @@ out-of-range values, and the Windows-1252 compatibility range. During
 sanitization, named references outside Unsane's compact built-in decoder are
 preserved for the browser to interpret, so their visible value is not changed
 and the runtime does not need to ship the full multi-thousand-entry entity
-table. URL and other active attributes remain subject to conservative
-capability-specific validation.
+table. URL attributes keep such references only when the scheme and
+protocol-relative checks are already settled before the first one, so the
+browser's decoding cannot change the verdict; otherwise the reference is
+escaped and stays literal text.
 
 ### CLI Usage
 

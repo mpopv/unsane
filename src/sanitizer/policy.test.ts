@@ -184,6 +184,19 @@ describe("sanitizer policy", () => {
         ]),
       ).toBe(' href="https://example.com/?a=1&amp;b=2"');
       expect(serialize([["href", "javascript&#58;alert(1)", true]])).toBe("");
+      expect(serialize([["href", "/\\example.com", true]])).toBe("");
+    });
+
+    it("leaves URL named references for the browser only when they cannot change the verdict", () => {
+      expect(serialize([["href", "/a?x=1&sol;b&amp;c", true]])).toBe(
+        ' href="/a?x=1&sol;b&amp;c"',
+      );
+      expect(serialize([["href", "/&sol;example.com", true]])).toBe(
+        ' href="/&amp;sol;example.com"',
+      );
+      expect(serialize([["href", "java&period;script:alert(1)", true]])).toBe(
+        ' href="java&amp;period;script:alert(1)"',
+      );
     });
 
     it("drops controls from inert attributes instead of keyword filtering", () => {

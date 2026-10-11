@@ -1,6 +1,6 @@
 import { JSDOM } from "jsdom";
 import { createSanitizer } from "../dist/index.js";
-import { isSafeUrlAttributeValue } from "../dist/utils/securityUtils.js";
+import { checkUrlAttributeValue } from "../dist/utils/securityUtils.js";
 
 const tags = [
   "a",
@@ -109,7 +109,7 @@ export function fuzz(data) {
   if (output.length > input.length * 8 + 256) {
     throw new Error(`Output expansion ${input.length} -> ${output.length}`);
   }
-  if (isSafeUrlAttributeValue(input) !== isSafeUrlAttributeValue(input)) {
+  if (checkUrlAttributeValue(input) !== checkUrlAttributeValue(input)) {
     throw new Error("Non-deterministic URL classification");
   }
 

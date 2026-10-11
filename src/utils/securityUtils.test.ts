@@ -1,9 +1,13 @@
 import { describe, it, expect } from "vitest";
 import {
   ALLOWED_PROTOCOLS,
-  isSafeUrlAttributeValue,
+  checkUrlAttributeValue,
   isUrlAttribute,
 } from "./securityUtils.js";
+
+function isSafeUrlAttributeValue(value: string): boolean {
+  return checkUrlAttributeValue(value) !== undefined;
+}
 
 describe("Security Utils", () => {
   describe("isUrlAttribute", () => {
@@ -49,6 +53,12 @@ describe("Security Utils", () => {
     it("should reject protocol-relative URLs and disallowed protocols", () => {
       expect(isSafeUrlAttributeValue("//example.com/path")).toBe(false);
       expect(isSafeUrlAttributeValue("&#47&#47example.com/path")).toBe(false);
+      expect(isSafeUrlAttributeValue("\\\\example.com/path")).toBe(false);
+      expect(isSafeUrlAttributeValue("/\\example.com/path")).toBe(false);
+      expect(isSafeUrlAttributeValue("\\/example.com/path")).toBe(false);
+      expect(isSafeUrlAttributeValue("&#92;&#92;example.com/path")).toBe(false);
+      expect(isSafeUrlAttributeValue("/a\\b")).toBe(true);
+      expect(isSafeUrlAttributeValue("\\a")).toBe(true);
       expect(isSafeUrlAttributeValue("javascript:void(0)")).toBe(false);
       expect(isSafeUrlAttributeValue("data:text/plain,hello")).toBe(false);
       expect(isSafeUrlAttributeValue("vbscript:msgbox(1)")).toBe(false);
@@ -141,6 +151,22 @@ describe("Security Utils", () => {
       expect(isSafeUrlAttributeValue("https://example.com/&#159;x")).toBe(
         false,
       );
+    });
+
+    it("should defer unknown named references only after the verdict is settled", () => {
+      expect(checkUrlAttributeValue("https://example.com/")).toBe(true);
+      expect(checkUrlAttributeValue("https:&sol;&sol;example.com")).toBe(true);
+      expect(checkUrlAttributeValue("/a?x=1&sol;b")).toBe(true);
+      expect(checkUrlAttributeValue("#a&madeup;")).toBe(true);
+      expect(checkUrlAttributeValue("#&madeup;")).toBe(false);
+      expect(checkUrlAttributeValue("ab/&madeup;")).toBe(true);
+      expect(checkUrlAttributeValue("ab&madeup;:x")).toBe(false);
+      expect(checkUrlAttributeValue("a.b+c-1&madeup;")).toBe(false);
+      expect(checkUrlAttributeValue("/&sol;example.com")).toBe(false);
+      expect(checkUrlAttributeValue("/&bsol;example.com")).toBe(false);
+      expect(checkUrlAttributeValue("&fjlig;avascript:alert(1)")).toBe(false);
+      expect(checkUrlAttributeValue("java&period;script:alert(1)")).toBe(false);
+      expect(checkUrlAttributeValue("javascript:alert(1)")).toBeUndefined();
     });
 
     it("should leave unknown or invalid entities inert", () => {

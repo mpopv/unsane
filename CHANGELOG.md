@@ -5,6 +5,8 @@
 ### Fixes
 
 - Preserved tabs, newlines, form feeds, and carriage returns in sanitized text instead of deleting them as controls, so `<pre>` blocks, Markdown output, and words separated by line breaks keep their content. Other C0 and C1 controls are still removed.
+- Rejected protocol-relative URLs written with backslashes (`\\host`, `/\host`, `\/host`), which browsers resolve exactly like `//host`.
+- Left named references such as `&sol;` in URL attributes for the browser to decode when the scheme and protocol-relative checks are settled before them, instead of double-escaping them into literal `&amp;sol;` text.
 
 ### Improvements
 
