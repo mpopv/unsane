@@ -2,8 +2,24 @@
 
 ## Unreleased
 
+### Fixes
+
+- Stopped `sanitize()` from throwing a `TypeError` on text or attributes containing references named after inherited object properties, such as `&constructor;` or `&toString;`, and `decode()` from returning the `Object` constructor's source for them. Untrusted input could otherwise crash any caller.
+- Stopped preserved references without a semicolon (for example `&l`) from merging with text that follows a removed control character, decoded reference, or dropped tag. `&l<x>t;` previously became `&lt;` and rendered as `<`, and the output was not stable when sanitized again. Such references are now escaped unless the next character reaches the output unchanged.
+- Preserved tabs, newlines, form feeds, and carriage returns in sanitized text instead of deleting them as controls, so `<pre>` blocks, Markdown output, and words separated by line breaks keep their content. Other C0 and C1 controls are still removed.
+- Rejected protocol-relative URLs written with backslashes (`\\host`, `/\host`, `\/host`), which browsers resolve exactly like `//host`.
+- Left named references such as `&sol;` in URL attributes for the browser to decode when the scheme and protocol-relative checks are settled before them, instead of double-escaping them into literal `&amp;sol;` text.
+- Dropped `<plaintext>` and the rest of the input even when the element is allowlisted, since browsers never leave the PLAINTEXT tokenizer state and an emitted `<plaintext>` would turn the rest of the host page into text.
+- Kept only the first occurrence of a repeated attribute, as browsers do. Previously a rejected first value (for example `href="javascript:…"`) let a later duplicate take its place.
+- Validated `maxInputLength` when a policy is compiled, so `createSanitizer()` rejects invalid limits immediately instead of on its first call.
+- Made `encode(text, { encodeEverything: true })` encode emoji and other astral characters as one reference instead of two lone surrogate halves that browsers render as `�`, and encode line breaks instead of skipping them.
+- Ended comments where browsers do, including the abrupt `<!-->` and `<!--->` forms and `--!>`, so content after them is no longer silently dropped.
+- Parsed `<?…>` processing instructions as hidden bogus comments instead of visible text, read a `/` that is not followed by `>` as an attribute separator (`<a/href="…">`), and kept stray `<` characters as text without swallowing a following tag (`<<<b>`) or dropping a trailing `<`.
+
 ### Improvements
 
+- Extended mutation testing to the tokenizer (`htmlSanitizer.ts`) and added the tests it exposed as missing: exact-output tree repair for headings, nested lists, definition lists, and table sections, attribute tokenizer states, allowlisted `embed`, and a property test that benign markup keeps its browser-visible text. Whitespace cases now also run against DOMPurify and sanitize-html, and 16 more upstream html5lib tokenizer cases are pinned.
+- Removed dead stores and duplicated boolean-attribute handling from the tokenizer.
 - Reused tokenizer scratch storage and removed redundant parser state and end-tag checks.
 - Simplified entity helpers around their string-only API and delegated Unicode scalar conversion to the platform.
 

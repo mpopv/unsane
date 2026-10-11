@@ -19,9 +19,20 @@ describe("HTML entity helpers", () => {
         { encodeEverything: true, useNamedReferences: true },
         "&#x41;&lt;&amp;",
       ],
+      ["😀\n", { encodeEverything: true }, "&#x1F600;&#xA;"],
+      ["😀\r", { encodeEverything: true, decimal: true }, "&#128512;&#13;"],
       ["", {}, ""],
     ])("encodes %j with %j", (input, options, expected) => {
       expect(encode(input, options)).toBe(expected);
+    });
+
+    it("round-trips every code point through decode", () => {
+      const text = "a\n\t😀𐐷é<&>\"'";
+
+      expect(decode(encode(text, { encodeEverything: true }))).toBe(text);
+      expect(
+        decode(encode(text, { encodeEverything: true, decimal: true })),
+      ).toBe(text);
     });
   });
 
@@ -53,6 +64,14 @@ describe("HTML entity helpers", () => {
       expect(decode(input)).toBe(expected);
     });
 
+    it("leaves inherited object property names undecoded", () => {
+      const input = "&constructor; &toString; &valueOf; &hasOwnProperty;";
+
+      expect(decode(input)).toBe(input);
+      expect(normalizeText(input)).toBe(input);
+      expect(normalizeAttributeValue(input)).toBe(input);
+    });
+
     it("preserves the inclusive Unicode scalar boundaries", () => {
       expect(decode("&#xFFFF; &#x10FFFF;")).toBe(
         `${String.fromCodePoint(0xffff)} ${String.fromCodePoint(0x10ffff)}`,
@@ -72,11 +91,39 @@ describe("HTML entity helpers", () => {
 
     it("decodes numeric references before filtering controls and escaping", () => {
       expect(normalizeText("<&amp;&#128;&#0;&#9;&#127;`>")).toBe(
-        "&lt;&amp;€�&#x60;&gt;",
+        "&lt;&amp;€�\t&#x60;&gt;",
       );
       expect(normalizeText("\u009f\u00a0")).toBe("\u00a0");
       expect(normalizeAttributeValue("'\"<&madeup;")).toBe(
         "&#x27;&quot;&lt;&madeup;",
+      );
+    });
+
+    it("escapes preserved references whose next character would change", () => {
+      expect(normalizeText("&a\u0000mp;")).toBe("&amp;amp;");
+      expect(normalizeText("&a\u0085mp;")).toBe("&amp;amp;");
+      expect(normalizeText("&l&#116;")).toBe("&amp;lt");
+      expect(normalizeText("&copy")).toBe("&amp;copy");
+      expect(normalizeText("&copy 2024 &copy\n&copy;&#65;")).toBe(
+        "&copy 2024 &copy\n&copy;A",
+      );
+      expect(normalizeAttributeValue("&copy")).toBe("&copy");
+      expect(normalizeAttributeValue("&l&#116;")).toBe("&amp;lt");
+      expect(normalizeAttributeValue("&madeup;&#65;")).toBe("&madeup;A");
+
+      for (const special of ['"', "'", "<", ">", "`"]) {
+        const text = normalizeText(`&e${special}`);
+
+        expect(text, special).toMatch(/^&amp;e&/);
+        expect(normalizeText(text), special).toBe(text);
+      }
+    });
+
+    it("keeps HTML whitespace while dropping other controls", () => {
+      expect(normalizeText("a\tb\nc\fd\re\r\nf")).toBe("a\tb\nc\fd\re\r\nf");
+      expect(normalizeText("&#9;&#10;&#12;&#13;")).toBe("\t\n\f\r");
+      expect(normalizeText("a\u0000\u0001\u0008\u000b\u000e\u001fb")).toBe(
+        "ab",
       );
     });
 

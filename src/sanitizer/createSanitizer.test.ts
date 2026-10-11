@@ -24,6 +24,12 @@ describe("createSanitizer", () => {
     );
   });
 
+  it("rejects an invalid input limit when the policy is compiled", () => {
+    expect(() => createSanitizer({ maxInputLength: -1 })).toThrow(
+      "maxInputLength must be a non-negative number.",
+    );
+  });
+
   it("enforces the compiled input limit on every call", () => {
     const compiled = createSanitizer({ maxInputLength: 4 });
 

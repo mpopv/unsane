@@ -95,6 +95,14 @@ const benignCases = [
     name: "code block inside div",
     html: '<div id="note" class="alert"><code>const x = 1;</code></div>',
   },
+  {
+    name: "multiline Markdown output",
+    html: "<p>first line\nsecond line</p>\n<ul>\n<li>one</li>\n<li>two</li>\n</ul>\n",
+  },
+  {
+    name: "preformatted code with indentation",
+    html: "<pre><code>if (ok) {\n\treturn 1;\n}\n</code></pre>",
+  },
 ];
 
 const executableOutputPatterns = [

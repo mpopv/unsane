@@ -141,6 +141,71 @@ test("matches browser URL parsing without accepting unsafe schemes", async ({
   expect(result.unsafeAccepted).toEqual([]);
 });
 
+const protocolRelativeUrls = [
+  "//evil.example",
+  " //evil.example",
+  "\\\\evil.example",
+  "/\\evil.example",
+  "\\/evil.example",
+  "&#47;&#47;evil.example",
+  "&#92;&#92;evil.example",
+  "&sol;&sol;evil.example",
+  "/&sol;evil.example",
+  "/&bsol;evil.example",
+] as const;
+
+const namedReferenceUrls = [
+  "/docs?x=1&sol;2",
+  "/docs?q=&lpar;a&rpar;&amp;page=2",
+  "https://example.com/&copy;",
+] as const;
+
+test("keeps browser-resolved hosts and named references on safe URLs", async ({
+  page,
+}) => {
+  await page.setContent(
+    '<!doctype html><base href="https://safe.example/root/">',
+  );
+
+  const candidates = [...protocolRelativeUrls, ...namedReferenceUrls].map(
+    (value) => ({
+      value,
+      sanitized: sanitize(`<a href="${value}">link</a>`),
+    }),
+  );
+
+  const result = await page.evaluate((values) => {
+    function resolve(html: string): string | null {
+      const container = document.createElement("div");
+      container.innerHTML = html;
+      const anchor = container.querySelector("a")!;
+      return anchor.hasAttribute("href") ? anchor.href : null;
+    }
+
+    return values.map((candidate) => ({
+      raw: candidate.value,
+      rawHref: resolve(`<a href="${candidate.value}">link</a>`),
+      sanitizedHref: resolve(candidate.sanitized),
+    }));
+  }, candidates);
+
+  for (const candidate of result.slice(0, protocolRelativeUrls.length)) {
+    if (candidate.sanitizedHref !== null) {
+      expect(new URL(candidate.sanitizedHref).host, candidate.raw).toBe(
+        "safe.example",
+      );
+    }
+  }
+
+  expect(
+    result.slice(0, 5).map((candidate) => new URL(candidate.rawHref!).host),
+  ).toEqual(Array(5).fill("evil.example"));
+
+  for (const candidate of result.slice(protocolRelativeUrls.length)) {
+    expect(candidate.sanitizedHref, candidate.raw).toBe(candidate.rawHref);
+  }
+});
+
 test("retains legitimate relative and allowlisted URLs in browser DOMs", async ({
   page,
 }) => {

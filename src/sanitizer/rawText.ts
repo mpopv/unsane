@@ -1,5 +1,5 @@
 const SKIPPED_CONTENT = new Set(
-  "base embed iframe link math meta noembed noframes noscript object script style svg template textarea title xmp".split(
+  "base embed iframe link math meta noembed noframes noscript object plaintext script style svg template textarea title xmp".split(
     " ",
   ),
 );
@@ -13,12 +13,29 @@ export function findTagEnd(html: string, position: number): number {
   return tagEnd === -1 ? html.length - 1 : tagEnd;
 }
 
+/** Find the end of a comment whose `<!--` opener has its `!` at `position`. */
+export function findCommentEnd(html: string, position: number): number {
+  // Searching `-->` from the opener's dashes closes `<!-->` and `<!--->`
+  // abruptly like browsers; `--!>` only counts after the full opener.
+  // Stryker disable next-line ArithmeticOperator: `-->` cannot start at the preceding `<!`.
+  const dashEnd = html.indexOf("-->", position + 1);
+  const bangEnd = html.indexOf("--!>", position + 3);
+
+  if (bangEnd !== -1 && (dashEnd === -1 || bangEnd < dashEnd)) {
+    return bangEnd + 3;
+  }
+  return dashEnd === -1 ? html.length - 1 : dashEnd + 2;
+}
+
 export function findSkippedContentEnd(
   html: string,
   tagName: string,
   openTagEnd: number,
   tagStart: number,
 ): number {
+  // Browsers never leave the PLAINTEXT state, so it swallows the rest.
+  if (tagName === "plaintext") return html.length - 1;
+
   if (
     (tagName === "svg" || tagName === "math") &&
     html.slice(tagStart, openTagEnd).trimEnd().endsWith("/")

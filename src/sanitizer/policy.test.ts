@@ -53,10 +53,26 @@ describe("sanitizer policy", () => {
         { allowedAttributes: { div: "class" } },
         "Invalid allowedAttributes.div.",
       ],
+      [
+        { maxInputLength: null },
+        "maxInputLength must be a non-negative number.",
+      ],
+      [{ maxInputLength: -1 }, "maxInputLength must be a non-negative number."],
+      [
+        { maxInputLength: Number.NaN },
+        "maxInputLength must be a non-negative number.",
+      ],
     ])("rejects malformed runtime options %#", (options, message) => {
       expect(() =>
         compilePolicy(options as unknown as SanitizerOptions),
       ).toThrow(message);
+    });
+
+    it("accepts zero and infinite input limits", () => {
+      expect(compilePolicy({ maxInputLength: 0 }).maxInputLength).toBe(0);
+      expect(compilePolicy({ maxInputLength: Infinity }).maxInputLength).toBe(
+        Infinity,
+      );
     });
   });
 
@@ -68,9 +84,6 @@ describe("sanitizer policy", () => {
 
     it.each([
       [null, 1, "Invalid html."],
-      ["x", null, "maxInputLength must be a non-negative number."],
-      ["x", -1, "maxInputLength must be a non-negative number."],
-      ["x", Number.NaN, "maxInputLength must be a non-negative number."],
       ["12345", 4, "Input length 5 exceeds maxInputLength 4."],
     ])("rejects invalid input bounds %#", (html, limit, message) => {
       expect(() => assertValidInput(html, limit as number)).toThrow(message);
@@ -145,6 +158,19 @@ describe("sanitizer policy", () => {
       return serializeAttributes(attributes, tagName, policy);
     }
 
+    it("drops later duplicates even when the first occurrence is rejected", () => {
+      expect(
+        serialize([
+          ["href", "javascript:alert(1)", true],
+          ["href", "/safe", true],
+          ["title", "bad\u0000value", true],
+          ["title", "safe", true],
+          ["target", "named", true],
+          ["target", "_blank", true],
+        ]),
+      ).toBe("");
+    });
+
     it("keeps allowlisted inert values and the first duplicate", () => {
       expect(
         serialize([
@@ -184,6 +210,19 @@ describe("sanitizer policy", () => {
         ]),
       ).toBe(' href="https://example.com/?a=1&amp;b=2"');
       expect(serialize([["href", "javascript&#58;alert(1)", true]])).toBe("");
+      expect(serialize([["href", "/\\example.com", true]])).toBe("");
+    });
+
+    it("leaves URL named references for the browser only when they cannot change the verdict", () => {
+      expect(serialize([["href", "/a?x=1&sol;b&amp;c", true]])).toBe(
+        ' href="/a?x=1&sol;b&amp;c"',
+      );
+      expect(serialize([["href", "/&sol;example.com", true]])).toBe(
+        ' href="/&amp;sol;example.com"',
+      );
+      expect(serialize([["href", "java&period;script:alert(1)", true]])).toBe(
+        ' href="java&amp;period;script:alert(1)"',
+      );
     });
 
     it("drops controls from inert attributes instead of keyword filtering", () => {
@@ -214,9 +253,26 @@ describe("sanitizer policy", () => {
     });
 
     it("does not attach link relations to non-anchor targets", () => {
-      expect(serialize([["class", "notice", true]], "div")).toBe(
-        ' class="notice"',
+      const anyTarget = compilePolicy({
+        allowedTags: ["div"],
+        allowedAttributes: { "*": ["target"] },
+      });
+
+      expect(
+        serializeAttributes([["target", "_blank", true]], "div", anyTarget),
+      ).toBe(' target="_blank"');
+    });
+
+    it("keeps unknown references in rel unless it is rewritten for _blank", () => {
+      expect(serialize([["rel", "help &madeup;", true]])).toBe(
+        ' rel="help &madeup;"',
       );
+      expect(
+        serialize([
+          ["target", "_blank", true],
+          ["rel", "help &madeup;", true],
+        ]),
+      ).toBe(' target="_blank" rel="help &amp;madeup; noopener noreferrer"');
     });
   });
 });

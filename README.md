@@ -83,15 +83,20 @@ Available options:
   `"*"` for attributes allowed on all tags.
 - `maxInputLength` – maximum input string length accepted by `sanitize()`.
   Defaults to `1_000_000` characters. Set to `Infinity` only for trusted,
-  already-bounded inputs.
+  already-bounded inputs. Negative or non-numeric values throw a `RangeError`
+  when the policy is compiled, including by `createSanitizer()`.
 
 Custom allowlists use a fixed capability model. Unsane strips document-state
 elements (`html`, `head`, `body`, `base`, `link`, `meta`, and `form`),
 upgradeable custom-element names containing `-`, event/CSS attributes,
 URL-list attributes, form-association attributes, browsing-state attributes,
 namespace transitions, and other specialized active grammars even when they
-are explicitly listed. Unknown non-upgradeable elements, `data-*`, `aria-*`,
-and other explicitly allowed inert attributes remain supported.
+are explicitly listed. Raw-text and tokenizer-switching elements such as
+`script`, `textarea`, `xmp`, and `plaintext` are dropped together with their
+content. Unknown non-upgradeable elements, `data-*`, `aria-*`, and other
+explicitly allowed inert attributes remain supported. As in browsers, only the
+first occurrence of a repeated attribute counts; if it is rejected, later
+duplicates are dropped too.
 
 Single-URL attributes, including legacy attributes such as `background`,
 `dynsrc`, and `lowsrc`, all use the fixed protocol validator. Browsing-context
@@ -102,8 +107,9 @@ instead of receiving incomplete parsing.
 URL-bearing attributes use a fixed conservative protocol allowlist:
 `http:`, `https:`, `mailto:`, `tel:`, `ftp:`, and `sms:`. Custom protocol
 allowlists are intentionally not part of the public API. Relative URLs and
-fragments are allowed, while protocol-relative URLs (`//example.com`) are
-removed.
+fragments are allowed, while protocol-relative URLs (`//example.com`, including
+the `\\example.com` and `/\example.com` forms that browsers read the same way)
+are removed.
 
 Links with `target="_blank"` are emitted with `rel="noopener noreferrer"` even
 when `rel` is omitted from a custom allowlist.
@@ -135,22 +141,32 @@ import { encode, decode, escape } from "unsane";
 const encoded = encode('<div>"text"</div>');
 // -> '&#x3C;div&#x3E;&#x22;text&#x22;&#x3C;/div&#x3E;'
 
-// Decode HTML entities
+// Decode numeric references and Unsane's compact named-reference set
 const decoded = decode("&lt;div&gt;&quot;text&quot;&lt;/div&gt;");
 // -> '<div>"text"</div>'
+decode("caf&eacute; &#233;");
+// -> 'caf&eacute; é' (named references outside the compact set are kept)
 
 // Escape HTML special characters
 const escaped = escape('<script>"alert"</script>');
 // -> '&lt;script&gt;&quot;alert&quot;&lt;/script&gt;'
 ```
 
+`decode()` is not a full HTML entity decoder. It decodes every numeric
+reference but only these named references: `&amp;`, `&lt;`, `&gt;`, `&quot;`
+(plus their uppercase forms), `&apos;`, `&nbsp;`, `&colon;`, `&NewLine;`, and
+`&Tab;`. Other named references, such as `&eacute;` or `&copy;`, are returned
+unchanged; use a full decoder if you need the complete HTML table.
+
 Numeric references follow the HTML replacement rules for nulls, surrogates,
 out-of-range values, and the Windows-1252 compatibility range. During
 sanitization, named references outside Unsane's compact built-in decoder are
 preserved for the browser to interpret, so their visible value is not changed
 and the runtime does not need to ship the full multi-thousand-entry entity
-table. URL and other active attributes remain subject to conservative
-capability-specific validation.
+table. URL attributes keep such references only when the scheme and
+protocol-relative checks are already settled before the first one, so the
+browser's decoding cannot change the verdict; otherwise the reference is
+escaped and stays literal text.
 
 ### CLI Usage
 

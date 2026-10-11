@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  findCommentEnd,
   findSkippedContentEnd,
   findTagEnd,
   shouldSkipElementContent,
@@ -8,7 +9,7 @@ import {
 describe("raw-text scanning", () => {
   it("classifies only exact skipped-content element names", () => {
     const skipped =
-      "base embed iframe link math meta noembed noframes noscript object script style svg template textarea title xmp".split(
+      "base embed iframe link math meta noembed noframes noscript object plaintext script style svg template textarea title xmp".split(
         " ",
       );
 
@@ -19,6 +20,21 @@ describe("raw-text scanning", () => {
       );
     }
     expect(shouldSkipElementContent("xscript")).toBe(false);
+  });
+
+  it.each([
+    ["<!-->tail", 4],
+    ["<!--->tail", 5],
+    ["<!---->tail", 6],
+    ["<!-- a -->tail", 9],
+    ["<!-- a --!>tail", 10],
+    ["<!-- a --!> b -->tail", 10],
+    ["<!-- a --> b --!>tail", 9],
+    ["<!--!> a -->tail", 11],
+    ["<!---!> a -->tail", 12],
+    ["<!-- unterminated", 16],
+  ])("finds the browser comment end in %j", (html, end) => {
+    expect(findCommentEnd(html, 1)).toBe(end);
   });
 
   it("finds tag ends and uses EOF as the unterminated sentinel", () => {
@@ -45,6 +61,14 @@ describe("raw-text scanning", () => {
 
     expect(findSkippedContentEnd(html, "script", 7, 1)).toBe(
       html.indexOf(">", html.indexOf("</script>")),
+    );
+  });
+
+  it("never ends plaintext content, even at a matching end tag", () => {
+    const html = "<plaintext>a</plaintext><p>b</p>";
+
+    expect(findSkippedContentEnd(html, "plaintext", 10, 1)).toBe(
+      html.length - 1,
     );
   });
 

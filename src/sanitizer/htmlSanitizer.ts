@@ -32,6 +32,7 @@ import {
 } from "./policy.js";
 import type { CompiledPolicy, ParsedAttribute } from "./policy.js";
 import {
+  findCommentEnd,
   findSkippedContentEnd,
   findTagEnd,
   shouldSkipElementContent,
@@ -59,15 +60,8 @@ const PARAGRAPH_CLOSING_START_PATTERN =
 const HEADING_PATTERN = /^h[1-6]$/;
 function readTagName(html: string, position: number): string {
   let end = position + 1;
-  while (end < html.length && /[a-zA-Z0-9\-_]/.test(html[end])) {
-    end++;
-  }
+  while (/[a-zA-Z0-9\-_]/.test(html.charAt(end))) end++;
   return html.slice(position, end).toLowerCase();
-}
-
-function sanitizeText(text: string): string {
-  if (!text || (!text.trim() && !text.includes(" "))) return "";
-  return normalizeText(text);
 }
 
 /**
@@ -95,10 +89,11 @@ export function createSanitizer(options?: SanitizerOptions): CompiledSanitizer {
 function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
   assertValidInput(html, policy.maxInputLength);
 
-  if (!html.includes("<")) return sanitizeText(html);
+  if (!html.includes("<")) return normalizeText(html);
 
   // Stack for tracking open tags
   const stack: string[] = [];
+  // Stryker disable next-line ArrayDeclaration: entries below the stack bottom are never popped.
   const previousOpenTagIndexes: number[] = [];
   const lastOpenTagIndex = new Map<string, number>();
 
@@ -109,18 +104,20 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
   let position = 0;
   let textStart = 0;
 
+  // Scratch values below are always assigned before they are read.
   let state = ParserState.Text;
+  // Stryker disable next-line StringLiteral: every tag start assigns the buffer.
   let tagNameBuffer = "";
   let attrNameBuffer = "";
-  let attrValueStart = -1;
+  let attrValueStart = 0;
   let isClosingTag = false;
   let inQuote = "";
+  // Stryker disable next-line ArrayDeclaration: a non-tuple entry has no allowlisted name.
   const currentAttrs: ParsedAttribute[] = [];
 
   // Helper function to emit text
   function emitText(end: number): void {
-    const text = sanitizeText(html.slice(textStart, end));
-    if (text) output.push(text);
+    output.push(normalizeText(html.slice(textStart, end)));
   }
 
   function openTagIndex(tagName: string): number {
@@ -138,17 +135,14 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
       const openTag = stack.pop()!;
       output.push(`</${openTag}>`);
 
-      const previousIndex = previousOpenTagIndexes.pop()!;
-      if (previousIndex < 0) {
-        lastOpenTagIndex.delete(openTag);
-      } else {
-        lastOpenTagIndex.set(openTag, previousIndex);
-      }
+      // -1 restores "not open", the same answer as a missing entry.
+      lastOpenTagIndex.set(openTag, previousOpenTagIndexes.pop()!);
     }
   }
 
   function closeLatestOptionalElement(
     tagNames: string[],
+    // Stryker disable next-line ArrayDeclaration: an unknown boundary name is never open.
     scopeBoundaries: string[] = [],
   ): void {
     let elementIndex = -1;
@@ -221,7 +215,14 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
   function takeAttributeValue(end: number): void {
     currentAttrs.push([attrNameBuffer, html.slice(attrValueStart, end), true]);
     attrNameBuffer = "";
-    attrValueStart = -1;
+  }
+
+  function takeBooleanAttribute(): void {
+    if (attrNameBuffer) {
+      // Stryker disable next-line StringLiteral: values without "=" are never read.
+      currentAttrs.push([attrNameBuffer, "", false]);
+      attrNameBuffer = "";
+    }
   }
 
   function finishTag(selfClosing = false): void {
@@ -231,9 +232,7 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
       handleStartTag(tagNameBuffer, currentAttrs, selfClosing);
     }
 
-    tagNameBuffer = "";
     attrNameBuffer = "";
-    attrValueStart = -1;
     currentAttrs.length = 0;
     isClosingTag = false;
     state = ParserState.Text;
@@ -248,14 +247,8 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
       case ParserState.Text:
         if (char === "<") {
           emitText(position);
-
-          // Special handling for double <<, which could be malformed HTML used for XSS
-          if (html[position + 1] === "<") {
-            // Skip the second < and emit it as text
-            output.push("&lt;");
-            position++; // Skip the second <
-          }
-
+          // Keep the "<" as pending text in case no tag follows it.
+          textStart = position;
           state = ParserState.TagStart;
         }
         break;
@@ -265,13 +258,12 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
           isClosingTag = true;
           tagNameBuffer = "";
           state = ParserState.TagName;
-        } else if (char === "!") {
-          if (html.startsWith("!--", position)) {
-            const commentEnd = html.indexOf("-->", position + 3);
-            position = commentEnd === -1 ? html.length - 1 : commentEnd + 2;
-          } else {
-            position = findTagEnd(html, position);
-          }
+        } else if (char === "!" || char === "?") {
+          // Comments, doctypes, CDATA, and processing instructions are all
+          // dropped; browsers parse the latter three as bogus comments.
+          position = html.startsWith("!--", position)
+            ? findCommentEnd(html, position)
+            : findTagEnd(html, position);
           state = ParserState.Text;
           textStart = position + 1;
         } else if (/[a-zA-Z]/.test(char)) {
@@ -298,9 +290,10 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
           tagNameBuffer = char.toLowerCase();
           state = ParserState.TagName;
         } else {
-          // Not a valid tag, revert to text
-          textStart = position - 1;
+          // Not a tag: the "<" stays text and this character is reconsumed,
+          // so a following "<" can still open a tag.
           state = ParserState.Text;
+          continue;
         }
         break;
 
@@ -322,21 +315,12 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
         } else if (char === "=") {
           state = ParserState.AttrValueStart;
         } else if (/\s/.test(char)) {
-          if (attrNameBuffer) {
-            currentAttrs.push([attrNameBuffer, "", false]);
-            attrNameBuffer = "";
-          }
+          takeBooleanAttribute();
         } else if (char === ">") {
-          if (attrNameBuffer) {
-            currentAttrs.push([attrNameBuffer, "", false]);
-            attrNameBuffer = "";
-          }
+          takeBooleanAttribute();
           finishTag();
         } else if (char === "/" && !isClosingTag) {
-          if (attrNameBuffer) {
-            currentAttrs.push([attrNameBuffer, "", false]);
-            attrNameBuffer = "";
-          }
+          takeBooleanAttribute();
           state = ParserState.TagEnd;
         }
         break;
@@ -349,10 +333,8 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
         } else if (/\s/.test(char)) {
           // Just skip whitespace
         } else if (char === ">") {
-          // Attribute with empty value
+          // Attribute with empty value; finishTag() resets the name buffer.
           currentAttrs.push([attrNameBuffer, "", true]);
-          attrNameBuffer = "";
-
           finishTag();
         } else {
           // Unquoted attribute value
@@ -382,6 +364,10 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
       case ParserState.TagEnd:
         if (char === ">") {
           finishTag(true);
+        } else {
+          // Like browsers, a "/" not followed by ">" separates attributes.
+          state = ParserState.AttrName;
+          continue;
         }
         break;
     }
@@ -389,8 +375,11 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
     position++;
   }
 
-  // Handle any remaining text; unterminated tags remain discarded.
-  if (state === ParserState.Text) emitText(html.length);
+  // Handle any remaining text, including a trailing "<"; unterminated tags
+  // remain discarded.
+  if (state === ParserState.Text || state === ParserState.TagStart) {
+    emitText(html.length);
+  }
 
   // Close any remaining tags
   closeStackFrom(0);

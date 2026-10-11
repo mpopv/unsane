@@ -20,9 +20,9 @@ is intentionally limited to cases that match Unsane's contract:
 - inert test attributes, because active capabilities have separate security
   oracles and cannot be enabled by a custom policy;
 - names accepted by Unsane's compact tag/attribute grammar. Upstream cases that
-  create names containing `<` or `=`, reinterpret a slash before attributes, or
-  emit a bare `</` text token are conservative preservation deviations rather
-  than security gaps and are not selected;
+  create names containing `<` or `=`, or emit a bare `</` text token, are
+  conservative preservation deviations rather than security gaps and are not
+  selected;
 - tokenizer behavior, not parse-error diagnostics, source locations, or exact
   serialization spelling.
 

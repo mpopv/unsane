@@ -96,14 +96,28 @@ export function isUrlAttribute(name: string): boolean {
   return URL_ATTRIBUTES.has(name.toLowerCase());
 }
 
-export function isSafeUrlAttributeValue(value: string): boolean {
+/**
+ * Classify a decoded URL attribute value: `undefined` when it is unsafe,
+ * otherwise whether named references outside Unsane's compact decoder may be
+ * left for the browser to decode. That is only allowed when the scheme and the
+ * protocol-relative prefix are settled before the first unresolved `&`, so the
+ * browser's full entity table cannot change the verdict.
+ */
+export function checkUrlAttributeValue(value: string): boolean | undefined {
   const normalized = normalizeUrl(value);
-  if (normalized === undefined) return false;
+  if (normalized === undefined) return undefined;
 
-  if (normalized.startsWith("//")) {
-    return false;
-  }
+  // Browsers read `\` as `/` in http(s) URLs, so `/\host` is protocol-relative.
+  if (/^[/\\]{2}/.test(normalized)) return undefined;
 
   const protocolMatch = normalized.match(/^([a-z][a-z0-9.+-]*):/);
-  return !protocolMatch || ALLOWED_PROTOCOLS.has(`${protocolMatch[1]}:`);
+  if (protocolMatch && !ALLOWED_PROTOCOLS.has(`${protocolMatch[1]}:`)) {
+    return undefined;
+  }
+
+  const reference = normalized.indexOf("&");
+  return (
+    reference < 0 ||
+    (reference > 1 && /[^a-z0-9.+-]/.test(normalized.slice(0, reference)))
+  );
 }
