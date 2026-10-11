@@ -10,6 +10,7 @@
 - Dropped `<plaintext>` and the rest of the input even when the element is allowlisted, since browsers never leave the PLAINTEXT tokenizer state and an emitted `<plaintext>` would turn the rest of the host page into text.
 - Kept only the first occurrence of a repeated attribute, as browsers do. Previously a rejected first value (for example `href="javascript:…"`) let a later duplicate take its place.
 - Validated `maxInputLength` when a policy is compiled, so `createSanitizer()` rejects invalid limits immediately instead of on its first call.
+- Made `encode(text, { encodeEverything: true })` encode emoji and other astral characters as one reference instead of two lone surrogate halves that browsers render as `�`, and encode line breaks instead of skipping them.
 
 ### Improvements
 

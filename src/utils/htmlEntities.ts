@@ -132,7 +132,8 @@ export function encode(text: string, options: EncodeOptions = {}): string {
     encodeEverything = false,
   } = options;
 
-  const pattern = encodeEverything ? /./g : /["&<>']/g;
+  // `u` keeps astral characters whole; `[\s\S]` also matches line breaks.
+  const pattern = encodeEverything ? /[\s\S]/gu : /["&<>']/g;
 
   return text.replace(pattern, (char) => {
     // Use named references if requested and available
@@ -141,7 +142,7 @@ export function encode(text: string, options: EncodeOptions = {}): string {
     }
 
     // Otherwise use numeric encoding
-    const codePoint = char.charCodeAt(0);
+    const codePoint = char.codePointAt(0)!;
     return decimal
       ? `&#${codePoint};`
       : `&#x${codePoint.toString(16).toUpperCase()};`; // Use uppercase for hex

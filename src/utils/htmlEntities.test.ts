@@ -19,9 +19,20 @@ describe("HTML entity helpers", () => {
         { encodeEverything: true, useNamedReferences: true },
         "&#x41;&lt;&amp;",
       ],
+      ["😀\n", { encodeEverything: true }, "&#x1F600;&#xA;"],
+      ["😀\r", { encodeEverything: true, decimal: true }, "&#128512;&#13;"],
       ["", {}, ""],
     ])("encodes %j with %j", (input, options, expected) => {
       expect(encode(input, options)).toBe(expected);
+    });
+
+    it("round-trips every code point through decode", () => {
+      const text = "a\n\t😀𐐷é<&>\"'";
+
+      expect(decode(encode(text, { encodeEverything: true }))).toBe(text);
+      expect(
+        decode(encode(text, { encodeEverything: true, decimal: true })),
+      ).toBe(text);
     });
   });
 
