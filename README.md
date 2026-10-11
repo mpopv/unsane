@@ -141,14 +141,22 @@ import { encode, decode, escape } from "unsane";
 const encoded = encode('<div>"text"</div>');
 // -> '&#x3C;div&#x3E;&#x22;text&#x22;&#x3C;/div&#x3E;'
 
-// Decode HTML entities
+// Decode numeric references and Unsane's compact named-reference set
 const decoded = decode("&lt;div&gt;&quot;text&quot;&lt;/div&gt;");
 // -> '<div>"text"</div>'
+decode("caf&eacute; &#233;");
+// -> 'caf&eacute; é' (named references outside the compact set are kept)
 
 // Escape HTML special characters
 const escaped = escape('<script>"alert"</script>');
 // -> '&lt;script&gt;&quot;alert&quot;&lt;/script&gt;'
 ```
+
+`decode()` is not a full HTML entity decoder. It decodes every numeric
+reference but only these named references: `&amp;`, `&lt;`, `&gt;`, `&quot;`
+(plus their uppercase forms), `&apos;`, `&nbsp;`, `&colon;`, `&NewLine;`, and
+`&Tab;`. Other named references, such as `&eacute;` or `&copy;`, are returned
+unchanged; use a full decoder if you need the complete HTML table.
 
 Numeric references follow the HTML replacement rules for nulls, surrogates,
 out-of-range values, and the Windows-1252 compatibility range. During

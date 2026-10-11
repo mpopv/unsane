@@ -2,23 +2,26 @@
 
 ## Project Structure & Module Organization
 
-Source resides in `src/`: `src/index.ts` exposes the public API, `src/sanitizer/` houses the sanitization pipeline, and `src/utils/` contains encoding helpers. Unit tests sit alongside code as `*.test.ts` (for example `src/exports.test.ts`). CLI tooling lives in `bin/unsane`. Build outputs flow to `dist/`; regenerate instead of editing. Coverage reports land in `coverage/`, and bundle-size checks use `measure-size.ts`.
+Source resides in `src/`: `src/index.ts` exposes the public API, `src/sanitizer/` houses the sanitization pipeline, and `src/utils/` contains encoding helpers. Unit tests sit alongside code as `*.test.ts` (for example `src/exports.test.ts`); real-browser Playwright suites live in `test/browser/`, pinned corpora in `test/corpus/`, and the Jazzer fuzz target in `fuzz/`. The CLI lives in `bin/unsane.js` and the release driver in `bin/release.sh`. Build outputs flow to `dist/`; regenerate instead of editing. Coverage reports land in `coverage/`, and bundle-size checks use `measure-size.ts`.
 
 ## Build, Test, and Development Commands
 
 - `npm install` — bootstrap dependencies.
-- `npm run build` — compile ESM and CJS bundles into `dist/`.
+- `npm run build` — compile the ESM-only build and type declarations into `dist/`.
 - `npm run test` — execute Vitest with V8 coverage and strict thresholds.
 - `npm run lint` — run ESLint across TypeScript and scripts.
 - `npm run format:check` — verify repository formatting with Prettier.
 - `npm run typecheck` — type-check source, tests, and TypeScript tooling.
 - `npm run analyze-size` — execute `measure-size.ts` to watch publishing footprint.
+- `npm run test:browser` — build, then run the Chromium/Firefox/WebKit conformance suites (`npx playwright install` first).
+- `npm run test:mutation` — run Stryker over the sanitizer modules with a 90% break threshold.
+- `npm run test:fuzz` — build, then replay the Jazzer fuzz corpus.
 - `npm run clean` — remove `dist/` for a clean rebuild.
-- `npm run release` — maintainer script that runs build/test and stages publish artifacts.
+- `npm run release -- <version>` — maintainer script (`bin/release.sh`) that verifies, versions, and tags a release through a protected-main pull request and creates the GitHub release; the `Publish Package` workflow then publishes to npm.
 
 ## Coding Style & Naming Conventions
 
-TypeScript plus modern ESM is the standard. Prettier (2-space indent, double quotes, trailing semicolons) and ESLint must pass before committing. Use camelCase for variables and functions, PascalCase for types and classes, and kebab-case filenames (`measure-size.ts`). Tests should mirror their subject file name with a `.test.ts` suffix and live next to the module.
+TypeScript plus modern ESM is the standard. Prettier (2-space indent, double quotes, trailing semicolons) and ESLint must pass before committing. Use camelCase for variables and functions, PascalCase for types and classes, camelCase module filenames under `src/` (`htmlSanitizer.ts`), and kebab-case filenames for top-level scripts and tooling (`measure-size.ts`). Tests should mirror their subject file name with a `.test.ts` suffix and live next to the module.
 
 ## Testing Guidelines
 
