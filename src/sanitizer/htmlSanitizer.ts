@@ -65,11 +65,6 @@ function readTagName(html: string, position: number): string {
   return html.slice(position, end).toLowerCase();
 }
 
-function sanitizeText(text: string): string {
-  if (!text || (!text.trim() && !text.includes(" "))) return "";
-  return normalizeText(text);
-}
-
 /**
  * Main sanitizer function - takes HTML and returns sanitized HTML
  *
@@ -95,7 +90,7 @@ export function createSanitizer(options?: SanitizerOptions): CompiledSanitizer {
 function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
   assertValidInput(html, policy.maxInputLength);
 
-  if (!html.includes("<")) return sanitizeText(html);
+  if (!html.includes("<")) return normalizeText(html);
 
   // Stack for tracking open tags
   const stack: string[] = [];
@@ -119,7 +114,7 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
 
   // Helper function to emit text
   function emitText(end: number): void {
-    const text = sanitizeText(html.slice(textStart, end));
+    const text = normalizeText(html.slice(textStart, end));
     if (text) output.push(text);
   }
 

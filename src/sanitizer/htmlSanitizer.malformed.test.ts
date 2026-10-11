@@ -152,6 +152,23 @@ describe("htmlSanitizer malformed parser corpus", () => {
     ).toBe(output);
   });
 
+  it("preserves whitespace that browsers keep in text", () => {
+    for (const input of [
+      "first line\nsecond line",
+      "<p>hello\nworld</p>",
+      "<b>a</b>\n<b>b</b>",
+      "<ul>\n\t<li>one</li>\r\n</ul>",
+      "<pre><code>line1\n\tline2\f\n</code>\n</pre>",
+    ]) {
+      const output = sanitize(input);
+
+      expect(output, input).toBe(input);
+      expect(browserTree(output), input).toBe(browserTree(input));
+    }
+
+    expect(sanitize("<p>a\u0000b\u0001c\u000bd</p>")).toBe("<p>abcd</p>");
+  });
+
   it("repairs optional paragraph and heading end tags like browsers", () => {
     const input =
       "<p>intro<h2>heading<h3>next</h3>tail<p>second<div>block</div>after";

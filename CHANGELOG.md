@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixes
+
+- Preserved tabs, newlines, form feeds, and carriage returns in sanitized text instead of deleting them as controls, so `<pre>` blocks, Markdown output, and words separated by line breaks keep their content. Other C0 and C1 controls are still removed.
+
 ### Improvements
 
 - Reused tokenizer scratch storage and removed redundant parser state and end-tag checks.

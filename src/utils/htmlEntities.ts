@@ -35,8 +35,9 @@ const CHAR_TO_NAMED: Record<string, string> = {
 
 // Characters to always escape for security reasons
 const ESCAPE_CHARS = /["'&<>`]/g;
+// Controls are dropped from text, except HTML whitespace (tab, LF, FF, CR).
 /* eslint-disable no-control-regex */
-const TEXT_NORMALIZE_PATTERN = /[\0-\x1f\x7f-\x9f"'&<>`]/g;
+const TEXT_NORMALIZE_PATTERN = /[\0-\x08\x0b\x0e-\x1f\x7f-\x9f"'&<>`]/g;
 /* eslint-enable no-control-regex */
 
 /** Convert an HTML numeric reference code point to a string. */

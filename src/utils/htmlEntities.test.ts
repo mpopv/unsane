@@ -72,11 +72,19 @@ describe("HTML entity helpers", () => {
 
     it("decodes numeric references before filtering controls and escaping", () => {
       expect(normalizeText("<&amp;&#128;&#0;&#9;&#127;`>")).toBe(
-        "&lt;&amp;€�&#x60;&gt;",
+        "&lt;&amp;€�\t&#x60;&gt;",
       );
       expect(normalizeText("\u009f\u00a0")).toBe("\u00a0");
       expect(normalizeAttributeValue("'\"<&madeup;")).toBe(
         "&#x27;&quot;&lt;&madeup;",
+      );
+    });
+
+    it("keeps HTML whitespace while dropping other controls", () => {
+      expect(normalizeText("a\tb\nc\fd\re\r\nf")).toBe("a\tb\nc\fd\re\r\nf");
+      expect(normalizeText("&#9;&#10;&#12;&#13;")).toBe("\t\n\f\r");
+      expect(normalizeText("a\u0000\u0001\u0008\u000b\u000e\u001fb")).toBe(
+        "ab",
       );
     });
 
