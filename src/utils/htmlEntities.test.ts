@@ -64,6 +64,14 @@ describe("HTML entity helpers", () => {
       expect(decode(input)).toBe(expected);
     });
 
+    it("leaves inherited object property names undecoded", () => {
+      const input = "&constructor; &toString; &valueOf; &hasOwnProperty;";
+
+      expect(decode(input)).toBe(input);
+      expect(normalizeText(input)).toBe(input);
+      expect(normalizeAttributeValue(input)).toBe(input);
+    });
+
     it("preserves the inclusive Unicode scalar boundaries", () => {
       expect(decode("&#xFFFF; &#x10FFFF;")).toBe(
         `${String.fromCodePoint(0xffff)} ${String.fromCodePoint(0x10ffff)}`,

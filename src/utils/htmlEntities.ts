@@ -75,7 +75,9 @@ function decodeReference(
     return undefined;
   }
 
-  return NAMED_TO_CHAR[entity];
+  // Ignore inherited keys such as `constructor` and `__proto__`.
+  const named = NAMED_TO_CHAR[entity];
+  return typeof named === "string" ? named : undefined;
 }
 
 function normalizeReferences(

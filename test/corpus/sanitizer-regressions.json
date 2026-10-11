@@ -62,5 +62,9 @@
   {
     "name": "double less than",
     "input": "<<<script>alert(1)</script><p>safe</p>"
+  },
+  {
+    "name": "inherited entity names in text and attributes",
+    "input": "<p class=\"&toString;\">&constructor; &__proto__; &valueOf;</p>"
   }
 ]

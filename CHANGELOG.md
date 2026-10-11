@@ -4,6 +4,7 @@
 
 ### Fixes
 
+- Stopped `sanitize()` from throwing a `TypeError` on text or attributes containing references named after inherited object properties, such as `&constructor;` or `&toString;`, and `decode()` from returning the `Object` constructor's source for them. Untrusted input could otherwise crash any caller.
 - Preserved tabs, newlines, form feeds, and carriage returns in sanitized text instead of deleting them as controls, so `<pre>` blocks, Markdown output, and words separated by line breaks keep their content. Other C0 and C1 controls are still removed.
 - Rejected protocol-relative URLs written with backslashes (`\\host`, `/\host`, `\/host`), which browsers resolve exactly like `//host`.
 - Left named references such as `&sol;` in URL attributes for the browser to decode when the scheme and protocol-relative checks are settled before them, instead of double-escaping them into literal `&amp;sol;` text.
