@@ -258,6 +258,104 @@
       ]
     },
     {
+      "file": "test2.test",
+      "description": "StartTag containing /",
+      "input": "<h/a='b'>",
+      "output": [
+        [
+          "StartTag",
+          "h",
+          {
+            "a": "b"
+          }
+        ]
+      ]
+    },
+    {
+      "file": "test2.test",
+      "description": "Simili processing instruction",
+      "input": "<?namespace>",
+      "output": [["Comment", "?namespace"]]
+    },
+    {
+      "file": "test2.test",
+      "description": "A bogus comment stops at >, even if preceded by two dashes",
+      "input": "<?foo-->",
+      "output": [["Comment", "?foo--"]]
+    },
+    {
+      "file": "test2.test",
+      "description": "Entity + newline",
+      "input": "\nx\n&gt;\n",
+      "output": [["Character", "\nx\n>\n"]]
+    },
+    {
+      "file": "test3.test",
+      "description": "<",
+      "input": "<",
+      "output": [["Character", "<"]]
+    },
+    {
+      "file": "test3.test",
+      "description": "<<",
+      "input": "<<",
+      "output": [["Character", "<<"]]
+    },
+    {
+      "file": "test3.test",
+      "description": "<?",
+      "input": "<?",
+      "output": [["Comment", "?"]]
+    },
+    {
+      "file": "test3.test",
+      "description": "<?>",
+      "input": "<?>",
+      "output": [["Comment", "?"]]
+    },
+    {
+      "file": "test3.test",
+      "description": "<a/a>",
+      "input": "<a/a>",
+      "output": [
+        [
+          "StartTag",
+          "a",
+          {
+            "a": ""
+          }
+        ]
+      ]
+    },
+    {
+      "file": "test3.test",
+      "description": "<a/->",
+      "input": "<a/->",
+      "output": [
+        [
+          "StartTag",
+          "a",
+          {
+            "-": ""
+          }
+        ]
+      ]
+    },
+    {
+      "file": "test3.test",
+      "description": "<a/0>",
+      "input": "<a/0>",
+      "output": [
+        [
+          "StartTag",
+          "a",
+          {
+            "0": ""
+          }
+        ]
+      ]
+    },
+    {
       "file": "test4.test",
       "description": "< in unquoted attribute value",
       "input": "<z x=<>",
@@ -376,6 +474,36 @@
           true
         ]
       ]
+    },
+    {
+      "file": "test4.test",
+      "description": "CR LF",
+      "input": "\r\n",
+      "output": [["Character", "\n"]]
+    },
+    {
+      "file": "test4.test",
+      "description": "CR CR",
+      "input": "\r\r",
+      "output": [["Character", "\n\n"]]
+    },
+    {
+      "file": "test4.test",
+      "description": "LF LF",
+      "input": "\n\n",
+      "output": [["Character", "\n\n"]]
+    },
+    {
+      "file": "test4.test",
+      "description": "text CR CR CR text",
+      "input": "text\r\r\rtext",
+      "output": [["Character", "text\n\n\ntext"]]
+    },
+    {
+      "file": "test4.test",
+      "description": "CR at EOF",
+      "input": "\r",
+      "output": [["Character", "\n"]]
     },
     {
       "file": "entities.test",

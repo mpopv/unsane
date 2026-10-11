@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  findCommentEnd,
   findSkippedContentEnd,
   findTagEnd,
   shouldSkipElementContent,
@@ -19,6 +20,21 @@ describe("raw-text scanning", () => {
       );
     }
     expect(shouldSkipElementContent("xscript")).toBe(false);
+  });
+
+  it.each([
+    ["<!-->tail", 4],
+    ["<!--->tail", 5],
+    ["<!---->tail", 6],
+    ["<!-- a -->tail", 9],
+    ["<!-- a --!>tail", 10],
+    ["<!-- a --!> b -->tail", 10],
+    ["<!-- a --> b --!>tail", 9],
+    ["<!--!> a -->tail", 11],
+    ["<!---!> a -->tail", 12],
+    ["<!-- unterminated", 16],
+  ])("finds the browser comment end in %j", (html, end) => {
+    expect(findCommentEnd(html, 1)).toBe(end);
   });
 
   it("finds tag ends and uses EOF as the unterminated sentinel", () => {

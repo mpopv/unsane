@@ -11,6 +11,8 @@
 - Kept only the first occurrence of a repeated attribute, as browsers do. Previously a rejected first value (for example `href="javascript:…"`) let a later duplicate take its place.
 - Validated `maxInputLength` when a policy is compiled, so `createSanitizer()` rejects invalid limits immediately instead of on its first call.
 - Made `encode(text, { encodeEverything: true })` encode emoji and other astral characters as one reference instead of two lone surrogate halves that browsers render as `�`, and encode line breaks instead of skipping them.
+- Ended comments where browsers do, including the abrupt `<!-->` and `<!--->` forms and `--!>`, so content after them is no longer silently dropped.
+- Parsed `<?…>` processing instructions as hidden bogus comments instead of visible text, read a `/` that is not followed by `>` as an attribute separator (`<a/href="…">`), and kept stray `<` characters as text without swallowing a following tag (`<<<b>`) or dropping a trailing `<`.
 
 ### Improvements
 

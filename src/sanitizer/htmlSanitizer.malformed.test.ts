@@ -6,16 +6,21 @@ function browserBody(html: string): string {
   return new JSDOM(`<body>${html}</body>`).window.document.body.innerHTML;
 }
 
+type BrowserNode = InstanceType<JSDOM["window"]["Node"]>;
+
+// Describes elements and text; comments are skipped because Unsane drops them.
 function browserTree(html: string): string {
   const body = new JSDOM(`<body>${html}</body>`).window.document.body;
   return JSON.stringify(
-    Array.from(body.childNodes, function describe(node): unknown {
-      if (node.nodeType === node.TEXT_NODE) return ["#text", node.textContent];
-      return [
-        node.nodeName.toLowerCase(),
-        Array.from(node.childNodes, describe),
-      ];
-    }),
+    (function describe(node: BrowserNode): unknown[] {
+      return Array.from(node.childNodes)
+        .filter((child) => child.nodeType !== child.COMMENT_NODE)
+        .map((child) =>
+          child.nodeType === child.TEXT_NODE
+            ? ["#text", child.textContent]
+            : [child.nodeName.toLowerCase(), describe(child)],
+        );
+    })(body),
   );
 }
 
@@ -23,6 +28,60 @@ describe("htmlSanitizer malformed parser corpus", () => {
   it("strips comments without leaking markup inside them", () => {
     expect(sanitize("a<!-- <img src=x onerror=alert(1)> -->b")).toBe("ab");
     expect(sanitize("a<!-- unterminated")).toBe("a");
+  });
+
+  it("ends comments and bogus comments where browsers do", () => {
+    for (const input of [
+      "<!--><b>after empty comment</b>",
+      "<!---><b>after empty comment</b>",
+      "<!----><b>after empty comment</b>",
+      "<!-- x --!><b>after bang-closed comment</b>",
+      "<!-- x --!><b>bang first</b>-->tail",
+      "<!-- x --><b>dash first</b> --!> tail",
+      "<!--!><b>still a comment</b>-->after",
+      "<!---!><b>still a comment</b>-->after",
+      "<?xml version='1.0'?><p>after processing instruction</p>",
+      "<![CDATA[x]]><p>after CDATA</p>",
+      "<!DOCTYPE html><p>after doctype</p>",
+    ]) {
+      const output = sanitize(input);
+
+      expect(output, input).not.toMatch(/<!|<\?|&lt;[!?]/);
+      expect(browserTree(output), input).toBe(browserTree(input));
+    }
+  });
+
+  it("treats a slash inside a start tag as an attribute separator", () => {
+    const options = {
+      allowedTags: ["a", "b", "img"],
+      allowedAttributes: { a: ["href", "title"], img: ["src"] },
+    };
+
+    expect(sanitize('<a/href="https://example.com/">link</a>', options)).toBe(
+      '<a href="https://example.com/">link</a>',
+    );
+    expect(sanitize('<a href="/x"/title="t">link</a>', options)).toBe(
+      '<a href="/x" title="t">link</a>',
+    );
+    expect(sanitize('<img src="x.png"/onerror="alert(1)">', options)).toBe(
+      '<img src="x.png" />',
+    );
+    expect(sanitize("<b/ >text</b>", options)).toBe("<b>text</b>");
+    expect(browserTree("<b/ >text</b>")).toBe(browserTree("<b>text</b>"));
+  });
+
+  it("keeps a stray '<' as text and reconsumes the next character", () => {
+    for (const [input, expected] of [
+      ["<<<b>x</b>", "&lt;&lt;<b>x</b>"],
+      ["a < b <<b>c</b>", "a &lt; b &lt;<b>c</b>"],
+      ["trailing <", "trailing &lt;"],
+      ["<", "&lt;"],
+    ]) {
+      const output = sanitize(input);
+
+      expect(output, input).toBe(expected);
+      expect(browserTree(output), input).toBe(browserTree(input));
+    }
   });
 
   it("drops dangerous raw-content containers with their contents", () => {

@@ -32,6 +32,7 @@ import {
 } from "./policy.js";
 import type { CompiledPolicy, ParsedAttribute } from "./policy.js";
 import {
+  findCommentEnd,
   findSkippedContentEnd,
   findTagEnd,
   shouldSkipElementContent,
@@ -243,14 +244,8 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
       case ParserState.Text:
         if (char === "<") {
           emitText(position);
-
-          // Special handling for double <<, which could be malformed HTML used for XSS
-          if (html[position + 1] === "<") {
-            // Skip the second < and emit it as text
-            output.push("&lt;");
-            position++; // Skip the second <
-          }
-
+          // Keep the "<" as pending text in case no tag follows it.
+          textStart = position;
           state = ParserState.TagStart;
         }
         break;
@@ -260,13 +255,12 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
           isClosingTag = true;
           tagNameBuffer = "";
           state = ParserState.TagName;
-        } else if (char === "!") {
-          if (html.startsWith("!--", position)) {
-            const commentEnd = html.indexOf("-->", position + 3);
-            position = commentEnd === -1 ? html.length - 1 : commentEnd + 2;
-          } else {
-            position = findTagEnd(html, position);
-          }
+        } else if (char === "!" || char === "?") {
+          // Comments, doctypes, CDATA, and processing instructions are all
+          // dropped; browsers parse the latter three as bogus comments.
+          position = html.startsWith("!--", position)
+            ? findCommentEnd(html, position)
+            : findTagEnd(html, position);
           state = ParserState.Text;
           textStart = position + 1;
         } else if (/[a-zA-Z]/.test(char)) {
@@ -293,9 +287,10 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
           tagNameBuffer = char.toLowerCase();
           state = ParserState.TagName;
         } else {
-          // Not a valid tag, revert to text
-          textStart = position - 1;
+          // Not a tag: the "<" stays text and this character is reconsumed,
+          // so a following "<" can still open a tag.
           state = ParserState.Text;
+          continue;
         }
         break;
 
@@ -377,6 +372,10 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
       case ParserState.TagEnd:
         if (char === ">") {
           finishTag(true);
+        } else {
+          // Like browsers, a "/" not followed by ">" separates attributes.
+          state = ParserState.AttrName;
+          continue;
         }
         break;
     }
@@ -384,8 +383,11 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
     position++;
   }
 
-  // Handle any remaining text; unterminated tags remain discarded.
-  if (state === ParserState.Text) emitText(html.length);
+  // Handle any remaining text, including a trailing "<"; unterminated tags
+  // remain discarded.
+  if (state === ParserState.Text || state === ParserState.TagStart) {
+    emitText(html.length);
+  }
 
   // Close any remaining tags
   closeStackFrom(0);
