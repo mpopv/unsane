@@ -99,6 +99,26 @@ describe("HTML entity helpers", () => {
       );
     });
 
+    it("escapes preserved references whose next character would change", () => {
+      expect(normalizeText("&a\u0000mp;")).toBe("&amp;amp;");
+      expect(normalizeText("&a\u0085mp;")).toBe("&amp;amp;");
+      expect(normalizeText("&l&#116;")).toBe("&amp;lt");
+      expect(normalizeText("&copy")).toBe("&amp;copy");
+      expect(normalizeText("&copy 2024 &copy\n&copy;&#65;")).toBe(
+        "&copy 2024 &copy\n&copy;A",
+      );
+      expect(normalizeAttributeValue("&copy")).toBe("&copy");
+      expect(normalizeAttributeValue("&l&#116;")).toBe("&amp;lt");
+      expect(normalizeAttributeValue("&madeup;&#65;")).toBe("&madeup;A");
+
+      for (const special of ['"', "'", "<", ">", "`"]) {
+        const text = normalizeText(`&e${special}`);
+
+        expect(text, special).toMatch(/^&amp;e&/);
+        expect(normalizeText(text), special).toBe(text);
+      }
+    });
+
     it("keeps HTML whitespace while dropping other controls", () => {
       expect(normalizeText("a\tb\nc\fd\re\r\nf")).toBe("a\tb\nc\fd\re\r\nf");
       expect(normalizeText("&#9;&#10;&#12;&#13;")).toBe("\t\n\f\r");

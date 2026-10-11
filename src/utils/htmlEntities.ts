@@ -39,6 +39,8 @@ const ESCAPE_CHARS = /["'&<>`]/g;
 /* eslint-disable no-control-regex */
 const TEXT_NORMALIZE_PATTERN = /[\0-\x08\x0b\x0e-\x1f\x7f-\x9f"'&<>`]/g;
 /* eslint-enable no-control-regex */
+// Characters that do not reach the output unchanged after a reference.
+const REFERENCE_BREAK_PATTERN = RegExp(TEXT_NORMALIZE_PATTERN.source);
 
 /** Convert an HTML numeric reference code point to a string. */
 function codePointToString(codePoint: number): string {
@@ -93,12 +95,20 @@ function normalizeReferences(
     const reference = match[0];
     output += normalizePlainText(text.slice(lastIndex, index));
 
-    const decoded = decodeReference(
-      reference,
-      text[index + reference.length] ?? "",
-      attributeContext,
-    );
-    output += decoded === undefined ? reference : normalizePlainText(decoded);
+    const following = text[index + reference.length] ?? "";
+    const decoded = decodeReference(reference, following, attributeContext);
+    // A preserved reference without ";" stays raw only if the character after
+    // it reaches the output unchanged. Removed controls, decoded references,
+    // or markup dropped after a text node could otherwise extend its name.
+    output +=
+      decoded !== undefined
+        ? normalizePlainText(decoded)
+        : reference.endsWith(";") ||
+            (following
+              ? !REFERENCE_BREAK_PATTERN.test(following)
+              : attributeContext)
+          ? reference
+          : `&amp;${reference.slice(1)}`;
     lastIndex = index + reference.length;
   }
 

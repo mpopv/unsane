@@ -248,6 +248,34 @@ describe("htmlSanitizer malformed parser corpus", () => {
     expect(resolvedHref(ambiguous)).toBe("https://app.test/&sol;evil.test");
   });
 
+  it("does not let removed markup or controls merge text into a new reference", () => {
+    const options = { allowedTags: ["p"], allowedAttributes: { p: ["title"] } };
+
+    for (const input of [
+      "&l<x>t;",
+      "&l<!-- -->t;",
+      "&l&#116;",
+      "<p title='&l&#116;'>&nb<x></x>sp;</p>",
+    ]) {
+      const output = sanitize(input, options);
+      const inputDocument = new JSDOM(`<body>${input}</body>`).window.document;
+      const outputDocument = new JSDOM(`<body>${output}</body>`).window
+        .document;
+
+      expect(sanitize(output, options), input).toBe(output);
+      expect(outputDocument.body.textContent, input).toBe(
+        inputDocument.body.textContent,
+      );
+      expect(outputDocument.querySelector("p")?.title, input).toBe(
+        inputDocument.querySelector("p")?.title,
+      );
+    }
+
+    const withControl = sanitize("&a\u0000mp;");
+    expect(withControl).toBe("&amp;amp;");
+    expect(sanitize(withControl)).toBe(withControl);
+  });
+
   it("preserves whitespace that browsers keep in text", () => {
     for (const input of [
       "first line\nsecond line",
