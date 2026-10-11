@@ -83,15 +83,20 @@ Available options:
   `"*"` for attributes allowed on all tags.
 - `maxInputLength` – maximum input string length accepted by `sanitize()`.
   Defaults to `1_000_000` characters. Set to `Infinity` only for trusted,
-  already-bounded inputs.
+  already-bounded inputs. Negative or non-numeric values throw a `RangeError`
+  when the policy is compiled, including by `createSanitizer()`.
 
 Custom allowlists use a fixed capability model. Unsane strips document-state
 elements (`html`, `head`, `body`, `base`, `link`, `meta`, and `form`),
 upgradeable custom-element names containing `-`, event/CSS attributes,
 URL-list attributes, form-association attributes, browsing-state attributes,
 namespace transitions, and other specialized active grammars even when they
-are explicitly listed. Unknown non-upgradeable elements, `data-*`, `aria-*`,
-and other explicitly allowed inert attributes remain supported.
+are explicitly listed. Raw-text and tokenizer-switching elements such as
+`script`, `textarea`, `xmp`, and `plaintext` are dropped together with their
+content. Unknown non-upgradeable elements, `data-*`, `aria-*`, and other
+explicitly allowed inert attributes remain supported. As in browsers, only the
+first occurrence of a repeated attribute counts; if it is rejected, later
+duplicates are dropped too.
 
 Single-URL attributes, including legacy attributes such as `background`,
 `dynsrc`, and `lowsrc`, all use the fixed protocol validator. Browsing-context

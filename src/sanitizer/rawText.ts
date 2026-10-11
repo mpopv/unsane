@@ -1,5 +1,5 @@
 const SKIPPED_CONTENT = new Set(
-  "base embed iframe link math meta noembed noframes noscript object script style svg template textarea title xmp".split(
+  "base embed iframe link math meta noembed noframes noscript object plaintext script style svg template textarea title xmp".split(
     " ",
   ),
 );
@@ -19,6 +19,9 @@ export function findSkippedContentEnd(
   openTagEnd: number,
   tagStart: number,
 ): number {
+  // Browsers never leave the PLAINTEXT state, so it swallows the rest.
+  if (tagName === "plaintext") return html.length - 1;
+
   if (
     (tagName === "svg" || tagName === "math") &&
     html.slice(tagStart, openTagEnd).trimEnd().endsWith("/")

@@ -8,7 +8,7 @@ import {
 describe("raw-text scanning", () => {
   it("classifies only exact skipped-content element names", () => {
     const skipped =
-      "base embed iframe link math meta noembed noframes noscript object script style svg template textarea title xmp".split(
+      "base embed iframe link math meta noembed noframes noscript object plaintext script style svg template textarea title xmp".split(
         " ",
       );
 
@@ -45,6 +45,14 @@ describe("raw-text scanning", () => {
 
     expect(findSkippedContentEnd(html, "script", 7, 1)).toBe(
       html.indexOf(">", html.indexOf("</script>")),
+    );
+  });
+
+  it("never ends plaintext content, even at a matching end tag", () => {
+    const html = "<plaintext>a</plaintext><p>b</p>";
+
+    expect(findSkippedContentEnd(html, "plaintext", 10, 1)).toBe(
+      html.length - 1,
     );
   });
 

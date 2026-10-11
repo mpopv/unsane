@@ -58,7 +58,7 @@ describe("htmlSanitizer malformed parser corpus", () => {
     expect(sanitize("<svg /><p>ok</p>")).toBe("<p>ok</p>");
   });
 
-  it("deduplicates attributes after the first safe emitted value", () => {
+  it("keeps only the first occurrence of each attribute like browsers", () => {
     expect(
       sanitize('<div class="one" class="two" id="x">Text</div>', {
         allowedTags: ["div"],
@@ -66,12 +66,27 @@ describe("htmlSanitizer malformed parser corpus", () => {
       }),
     ).toBe('<div class="one" id="x">Text</div>');
 
+    const input = '<a href="javascript:alert(1)" href="/safe">Link</a>';
+    const output = sanitize(input, {
+      allowedTags: ["a"],
+      allowedAttributes: { a: ["href"] },
+    });
+
+    expect(output).toBe("<a>Link</a>");
+    expect(browserBody(input)).toBe('<a href="javascript:alert(1)">Link</a>');
+  });
+
+  it("drops plaintext and everything after it even when allowlisted", () => {
     expect(
-      sanitize('<a href="javascript:alert(1)" href="/safe">Link</a>', {
-        allowedTags: ["a"],
-        allowedAttributes: { a: ["href"] },
+      sanitize("<p>a</p><plaintext><b>b</b></plaintext><p>c</p>", {
+        allowedTags: ["p", "b", "plaintext"],
+        allowedAttributes: {},
       }),
-    ).toBe('<a href="/safe">Link</a>');
+    ).toBe("<p>a</p>");
+
+    const document = new JSDOM("<plaintext><b>b</b>").window.document;
+    expect(document.querySelector("b")).toBeNull();
+    expect(document.querySelector("plaintext")?.textContent).toBe("<b>b</b>");
   });
 
   it("handles uncommon whitespace and slash placement without creating attributes", () => {

@@ -53,10 +53,26 @@ describe("sanitizer policy", () => {
         { allowedAttributes: { div: "class" } },
         "Invalid allowedAttributes.div.",
       ],
+      [
+        { maxInputLength: null },
+        "maxInputLength must be a non-negative number.",
+      ],
+      [{ maxInputLength: -1 }, "maxInputLength must be a non-negative number."],
+      [
+        { maxInputLength: Number.NaN },
+        "maxInputLength must be a non-negative number.",
+      ],
     ])("rejects malformed runtime options %#", (options, message) => {
       expect(() =>
         compilePolicy(options as unknown as SanitizerOptions),
       ).toThrow(message);
+    });
+
+    it("accepts zero and infinite input limits", () => {
+      expect(compilePolicy({ maxInputLength: 0 }).maxInputLength).toBe(0);
+      expect(compilePolicy({ maxInputLength: Infinity }).maxInputLength).toBe(
+        Infinity,
+      );
     });
   });
 
@@ -68,9 +84,6 @@ describe("sanitizer policy", () => {
 
     it.each([
       [null, 1, "Invalid html."],
-      ["x", null, "maxInputLength must be a non-negative number."],
-      ["x", -1, "maxInputLength must be a non-negative number."],
-      ["x", Number.NaN, "maxInputLength must be a non-negative number."],
       ["12345", 4, "Input length 5 exceeds maxInputLength 4."],
     ])("rejects invalid input bounds %#", (html, limit, message) => {
       expect(() => assertValidInput(html, limit as number)).toThrow(message);
@@ -144,6 +157,19 @@ describe("sanitizer policy", () => {
     function serialize(attributes: ParsedAttribute[], tagName = "a"): string {
       return serializeAttributes(attributes, tagName, policy);
     }
+
+    it("drops later duplicates even when the first occurrence is rejected", () => {
+      expect(
+        serialize([
+          ["href", "javascript:alert(1)", true],
+          ["href", "/safe", true],
+          ["title", "bad\u0000value", true],
+          ["title", "safe", true],
+          ["target", "named", true],
+          ["target", "_blank", true],
+        ]),
+      ).toBe("");
+    });
 
     it("keeps allowlisted inert values and the first duplicate", () => {
       expect(

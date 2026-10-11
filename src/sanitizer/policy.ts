@@ -97,11 +97,23 @@ function normalizePolicy(options?: SanitizerOptions): CompiledPolicy {
         ? DEFAULT_OPTIONS.allowedAttributes
         : options.allowedAttributes,
     ),
-    maxInputLength:
+    maxInputLength: normalizeMaxInputLength(
       options?.maxInputLength === undefined
         ? DEFAULT_OPTIONS.maxInputLength
         : options.maxInputLength,
+    ),
   };
+}
+
+function normalizeMaxInputLength(maxInputLength: unknown): number {
+  if (
+    typeof maxInputLength !== "number" ||
+    maxInputLength < 0 ||
+    Number.isNaN(maxInputLength)
+  ) {
+    throw new RangeError("maxInputLength must be a non-negative number.");
+  }
+  return maxInputLength;
 }
 
 const DEFAULT_POLICY = normalizePolicy();
@@ -115,14 +127,6 @@ export function assertValidInput(
   maxInputLength: number,
 ): asserts html is string {
   if (typeof html !== "string") invalid("html");
-
-  if (
-    typeof maxInputLength !== "number" ||
-    maxInputLength < 0 ||
-    Number.isNaN(maxInputLength)
-  ) {
-    throw new RangeError("maxInputLength must be a non-negative number.");
-  }
 
   if (Number.isFinite(maxInputLength) && html.length > maxInputLength) {
     throw new RangeError(
@@ -177,10 +181,15 @@ export function serializeAttributes(
   const tagAllowedAttributes = policy.allowedAttributes.get(tagName);
   const globalAttributes = policy.allowedAttributes.get("*");
   const output: SerializedAttribute[] = [];
-  const emitted = new Set<string>();
+  const seen = new Set<string>();
   let hasBlankTarget = false;
 
   for (let [name, value, hasValue] of attributes) {
+    // Browsers keep only the first occurrence of a name, so a rejected first
+    // value must not let a later duplicate take its place.
+    if (seen.has(name)) continue;
+    seen.add(name);
+
     const rawValue = value;
     value = decode(value);
 
@@ -199,9 +208,6 @@ export function serializeAttributes(
     } else if (value && UNSAFE_ATTRIBUTE_CHARS_PATTERN.test(value)) {
       continue;
     }
-
-    if (emitted.has(name)) continue;
-    emitted.add(name);
 
     if (name === "target" && hasValue) {
       const target = safeTarget(value);

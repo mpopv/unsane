@@ -7,6 +7,9 @@
 - Preserved tabs, newlines, form feeds, and carriage returns in sanitized text instead of deleting them as controls, so `<pre>` blocks, Markdown output, and words separated by line breaks keep their content. Other C0 and C1 controls are still removed.
 - Rejected protocol-relative URLs written with backslashes (`\\host`, `/\host`, `\/host`), which browsers resolve exactly like `//host`.
 - Left named references such as `&sol;` in URL attributes for the browser to decode when the scheme and protocol-relative checks are settled before them, instead of double-escaping them into literal `&amp;sol;` text.
+- Dropped `<plaintext>` and the rest of the input even when the element is allowlisted, since browsers never leave the PLAINTEXT tokenizer state and an emitted `<plaintext>` would turn the rest of the host page into text.
+- Kept only the first occurrence of a repeated attribute, as browsers do. Previously a rejected first value (for example `href="javascript:…"`) let a later duplicate take its place.
+- Validated `maxInputLength` when a policy is compiled, so `createSanitizer()` rejects invalid limits immediately instead of on its first call.
 
 ### Improvements
 
