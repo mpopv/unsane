@@ -253,9 +253,26 @@ describe("sanitizer policy", () => {
     });
 
     it("does not attach link relations to non-anchor targets", () => {
-      expect(serialize([["class", "notice", true]], "div")).toBe(
-        ' class="notice"',
+      const anyTarget = compilePolicy({
+        allowedTags: ["div"],
+        allowedAttributes: { "*": ["target"] },
+      });
+
+      expect(
+        serializeAttributes([["target", "_blank", true]], "div", anyTarget),
+      ).toBe(' target="_blank"');
+    });
+
+    it("keeps unknown references in rel unless it is rewritten for _blank", () => {
+      expect(serialize([["rel", "help &madeup;", true]])).toBe(
+        ' rel="help &madeup;"',
       );
+      expect(
+        serialize([
+          ["target", "_blank", true],
+          ["rel", "help &madeup;", true],
+        ]),
+      ).toBe(' target="_blank" rel="help &amp;madeup; noopener noreferrer"');
     });
   });
 });

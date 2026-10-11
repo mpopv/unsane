@@ -5,6 +5,7 @@ const config = {
   concurrency: 2,
   coverageAnalysis: "perTest",
   mutate: [
+    "src/sanitizer/htmlSanitizer.ts",
     "src/sanitizer/policy.ts",
     "src/sanitizer/rawText.ts",
     "src/utils/htmlEntities.ts",

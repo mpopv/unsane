@@ -184,6 +184,8 @@ export function decode(text: string): string {
 
 /** Normalize references, remove controls, and escape inert text in one scan. */
 export function normalizeText(text: string): string {
+  // Tag boundaries produce many empty runs; skip the reference scan for them.
+  if (!text) return text;
   return normalizeReferences(
     text,
     (value) =>

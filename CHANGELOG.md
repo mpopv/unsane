@@ -18,6 +18,8 @@
 
 ### Improvements
 
+- Extended mutation testing to the tokenizer (`htmlSanitizer.ts`) and added the tests it exposed as missing: exact-output tree repair for headings, nested lists, definition lists, and table sections, attribute tokenizer states, allowlisted `embed`, and a property test that benign markup keeps its browser-visible text. Whitespace cases now also run against DOMPurify and sanitize-html, and 16 more upstream html5lib tokenizer cases are pinned.
+- Removed dead stores and duplicated boolean-attribute handling from the tokenizer.
 - Reused tokenizer scratch storage and removed redundant parser state and end-tag checks.
 - Simplified entity helpers around their string-only API and delegated Unicode scalar conversion to the platform.
 

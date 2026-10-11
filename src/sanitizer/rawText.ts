@@ -17,11 +17,14 @@ export function findTagEnd(html: string, position: number): number {
 export function findCommentEnd(html: string, position: number): number {
   // Searching `-->` from the opener's dashes closes `<!-->` and `<!--->`
   // abruptly like browsers; `--!>` only counts after the full opener.
+  // Stryker disable next-line ArithmeticOperator: `-->` cannot start at the preceding `<!`.
   const dashEnd = html.indexOf("-->", position + 1);
   const bangEnd = html.indexOf("--!>", position + 3);
 
-  if (bangEnd >= 0 && (dashEnd < 0 || bangEnd < dashEnd)) return bangEnd + 3;
-  return dashEnd < 0 ? html.length - 1 : dashEnd + 2;
+  if (bangEnd !== -1 && (dashEnd === -1 || bangEnd < dashEnd)) {
+    return bangEnd + 3;
+  }
+  return dashEnd === -1 ? html.length - 1 : dashEnd + 2;
 }
 
 export function findSkippedContentEnd(

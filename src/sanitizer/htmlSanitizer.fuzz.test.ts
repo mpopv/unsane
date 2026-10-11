@@ -204,6 +204,68 @@ const htmlFragmentArbitrary = fc.oneof(
     .map((elements) => elements.join("")),
 );
 
+const benignTags = [
+  "p",
+  "div",
+  "span",
+  "b",
+  "i",
+  "strong",
+  "em",
+  "code",
+  "pre",
+  "blockquote",
+  "h1",
+  "ul",
+  "li",
+] as const;
+const benignLeaves = [
+  "plain",
+  " ",
+  "\n",
+  "\t",
+  "\r\n",
+  "  indented\n",
+  "line\nbreak",
+  "café",
+  "😀",
+  "1 < 2",
+  "x > y",
+  "a & b",
+  "&amp;",
+  "&lt;tag&gt;",
+  "&copy;",
+  "&#x1F600;",
+  '"quoted"',
+  "'single'",
+  "<br>",
+  "<hr>",
+] as const;
+
+// Well-nested default-policy markup without tables, so browsers never
+// reorder its text (no foster parenting).
+const benignMarkupArbitrary = fc
+  .array(
+    fc.letrec<{ node: string; element: string }>((tie) => ({
+      node: fc.oneof(
+        { depthSize: "small" },
+        fc.constantFrom(...benignLeaves),
+        tie("element"),
+      ),
+      element: fc
+        .tuple(
+          fc.constantFrom(...benignTags),
+          fc.array(tie("node"), { maxLength: 4 }),
+        )
+        .map(
+          ([tagName, children]) =>
+            `<${tagName}>${children.join("")}</${tagName}>`,
+        ),
+    })).node,
+    { maxLength: 6 },
+  )
+  .map((nodes) => nodes.join(""));
+
 const safePolicyArbitrary: fc.Arbitrary<SanitizerOptions | undefined> =
   fc.oneof(
     fc.constant(undefined),
@@ -318,6 +380,25 @@ describe("htmlSanitizer adversarial generation", () => {
       {
         endOnFailure: true,
         numRuns: 2_000,
+        seed: 0x5eedc0de,
+      },
+    );
+  });
+
+  it("preserves the browser-visible text of benign markup", () => {
+    const inputBody = createBrowserBody();
+    const outputBody = createBrowserBody();
+
+    fc.assert(
+      fc.property(benignMarkupArbitrary, (input) => {
+        inputBody.innerHTML = input;
+        outputBody.innerHTML = sanitize(input);
+
+        expect(outputBody.textContent, input).toBe(inputBody.textContent);
+      }),
+      {
+        endOnFailure: true,
+        numRuns: 1_000,
         seed: 0x5eedc0de,
       },
     );

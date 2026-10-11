@@ -60,9 +60,7 @@ const PARAGRAPH_CLOSING_START_PATTERN =
 const HEADING_PATTERN = /^h[1-6]$/;
 function readTagName(html: string, position: number): string {
   let end = position + 1;
-  while (end < html.length && /[a-zA-Z0-9\-_]/.test(html[end])) {
-    end++;
-  }
+  while (/[a-zA-Z0-9\-_]/.test(html.charAt(end))) end++;
   return html.slice(position, end).toLowerCase();
 }
 
@@ -95,6 +93,7 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
 
   // Stack for tracking open tags
   const stack: string[] = [];
+  // Stryker disable next-line ArrayDeclaration: entries below the stack bottom are never popped.
   const previousOpenTagIndexes: number[] = [];
   const lastOpenTagIndex = new Map<string, number>();
 
@@ -105,18 +104,20 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
   let position = 0;
   let textStart = 0;
 
+  // Scratch values below are always assigned before they are read.
   let state = ParserState.Text;
+  // Stryker disable next-line StringLiteral: every tag start assigns the buffer.
   let tagNameBuffer = "";
   let attrNameBuffer = "";
-  let attrValueStart = -1;
+  let attrValueStart = 0;
   let isClosingTag = false;
   let inQuote = "";
+  // Stryker disable next-line ArrayDeclaration: a non-tuple entry has no allowlisted name.
   const currentAttrs: ParsedAttribute[] = [];
 
   // Helper function to emit text
   function emitText(end: number): void {
-    const text = normalizeText(html.slice(textStart, end));
-    if (text) output.push(text);
+    output.push(normalizeText(html.slice(textStart, end)));
   }
 
   function openTagIndex(tagName: string): number {
@@ -134,17 +135,14 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
       const openTag = stack.pop()!;
       output.push(`</${openTag}>`);
 
-      const previousIndex = previousOpenTagIndexes.pop()!;
-      if (previousIndex < 0) {
-        lastOpenTagIndex.delete(openTag);
-      } else {
-        lastOpenTagIndex.set(openTag, previousIndex);
-      }
+      // -1 restores "not open", the same answer as a missing entry.
+      lastOpenTagIndex.set(openTag, previousOpenTagIndexes.pop()!);
     }
   }
 
   function closeLatestOptionalElement(
     tagNames: string[],
+    // Stryker disable next-line ArrayDeclaration: an unknown boundary name is never open.
     scopeBoundaries: string[] = [],
   ): void {
     let elementIndex = -1;
@@ -217,7 +215,14 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
   function takeAttributeValue(end: number): void {
     currentAttrs.push([attrNameBuffer, html.slice(attrValueStart, end), true]);
     attrNameBuffer = "";
-    attrValueStart = -1;
+  }
+
+  function takeBooleanAttribute(): void {
+    if (attrNameBuffer) {
+      // Stryker disable next-line StringLiteral: values without "=" are never read.
+      currentAttrs.push([attrNameBuffer, "", false]);
+      attrNameBuffer = "";
+    }
   }
 
   function finishTag(selfClosing = false): void {
@@ -227,9 +232,7 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
       handleStartTag(tagNameBuffer, currentAttrs, selfClosing);
     }
 
-    tagNameBuffer = "";
     attrNameBuffer = "";
-    attrValueStart = -1;
     currentAttrs.length = 0;
     isClosingTag = false;
     state = ParserState.Text;
@@ -312,21 +315,12 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
         } else if (char === "=") {
           state = ParserState.AttrValueStart;
         } else if (/\s/.test(char)) {
-          if (attrNameBuffer) {
-            currentAttrs.push([attrNameBuffer, "", false]);
-            attrNameBuffer = "";
-          }
+          takeBooleanAttribute();
         } else if (char === ">") {
-          if (attrNameBuffer) {
-            currentAttrs.push([attrNameBuffer, "", false]);
-            attrNameBuffer = "";
-          }
+          takeBooleanAttribute();
           finishTag();
         } else if (char === "/" && !isClosingTag) {
-          if (attrNameBuffer) {
-            currentAttrs.push([attrNameBuffer, "", false]);
-            attrNameBuffer = "";
-          }
+          takeBooleanAttribute();
           state = ParserState.TagEnd;
         }
         break;
@@ -339,10 +333,8 @@ function sanitizeWithPolicy(html: string, policy: CompiledPolicy): string {
         } else if (/\s/.test(char)) {
           // Just skip whitespace
         } else if (char === ">") {
-          // Attribute with empty value
+          // Attribute with empty value; finishTag() resets the name buffer.
           currentAttrs.push([attrNameBuffer, "", true]);
-          attrNameBuffer = "";
-
           finishTag();
         } else {
           // Unquoted attribute value

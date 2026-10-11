@@ -220,7 +220,7 @@ export function serializeAttributes(
       name,
       value,
       hasValue,
-      keepReferences && name !== "target" && name !== "rel"
+      keepReferences && name !== "target"
         ? normalizeAttributeValue(rawValue)
         : undefined,
     ]);

@@ -348,3 +348,107 @@ describe("htmlSanitizer malformed parser corpus", () => {
     expect(browserTree(output)).toBe(browserTree(input));
   });
 });
+
+// Browsers repair most tree differences again when they parse the output, so
+// these cases pin the exact serialization as well as browser equivalence.
+describe("htmlSanitizer tree repair and tokenizer contracts", () => {
+  function policy(allowedTags: string[], allowedAttributes = {}) {
+    return { allowedTags, allowedAttributes };
+  }
+
+  it.each([
+    [
+      "<h1>a<h2>b<h3>c<h4>d<h5>e<h6>f<h1>g",
+      policy(["h1", "h2", "h3", "h4", "h5", "h6"]),
+      "<h1>a</h1><h2>b</h2><h3>c</h3><h4>d</h4><h5>e</h5><h6>f</h6><h1>g</h1>",
+    ],
+    [
+      "<ol><li>a<ol><li>b<li>c</ol><li>d</ol>",
+      policy(["ol", "li"]),
+      "<ol><li>a<ol><li>b</li><li>c</li></ol></li><li>d</li></ol>",
+    ],
+    [
+      "<menu><li>a<menu><li>b</menu><li>c</menu>",
+      policy(["menu", "li"]),
+      "<menu><li>a<menu><li>b</li></menu></li><li>c</li></menu>",
+    ],
+    [
+      "<dl><dt>a<dd>b<dt>c<dd>d<dl><dt>e<dd>f</dl>g</dl>",
+      policy(["dl", "dt", "dd"]),
+      "<dl><dt>a</dt><dd>b</dd><dt>c</dt><dd>d<dl><dt>e</dt><dd>f</dd></dl>g</dd></dl>",
+    ],
+    [
+      "<table><thead><tr><th>h<tbody><tr><td>b<tfoot><tr><td>f<tbody><tr><td>g</table>",
+      policy(["table", "thead", "tbody", "tfoot", "tr", "td", "th"]),
+      "<table><thead><tr><th>h</th></tr></thead><tbody><tr><td>b</td></tr></tbody><tfoot><tr><td>f</td></tr></tfoot><tbody><tr><td>g</td></tr></tbody></table>",
+    ],
+    [
+      "<table><tbody><tr><td><table><tbody><tr><td>x</table>y</table>",
+      policy(["table", "tbody", "tr", "td"]),
+      "<table><tbody><tr><td><table><tbody><tr><td>x</td></tr></tbody></table>y</td></tr></tbody></table>",
+    ],
+    [
+      "<table><tr><td>a<table><tr><td>b</table>c<th>d<td><b>e</b></table>",
+      policy(["table", "tr", "td", "th", "b"]),
+      "<table><tr><td>a<table><tr><td>b</td></tr></table>c</td><th>d</th><td><b>e</b></td></tr></table>",
+    ],
+    [
+      "<table><tr><td>a<thead><tr><td>b<tfoot><tr><td>c<tbody><tr><td>d</table>",
+      policy(["table", "thead", "tbody", "tfoot", "tr", "td"]),
+      "<table><tr><td>a<thead><tr><td>b</td></tr></thead><tfoot><tr><td>c</td></tr></tfoot><tbody><tr><td>d</td></tr></tbody></td></tr></table>",
+    ],
+    [
+      "<table><thead><tr><th>h<theadx>x</theadx><xthead>y</xthead></table>",
+      policy(["table", "thead", "tr", "th", "theadx", "xthead"]),
+      "<table><thead><tr><th>h<theadx>x</theadx><xthead>y</xthead></th></tr></thead></table>",
+    ],
+    [
+      "<p>a<sup>1</sup><picture>b</picture>c</p>",
+      policy(["p", "sup", "picture"]),
+      "<p>a<sup>1</sup><picture>b</picture>c</p>",
+    ],
+    [
+      "<h1>a<h2x>b</h2x><xh2>c</xh2>d</h1>",
+      policy(["h1", "h2x", "xh2"]),
+      "<h1>a<h2x>b</h2x><xh2>c</xh2>d</h1>",
+    ],
+    [
+      "<div><div></div></div>after",
+      policy(["div"]),
+      "<div><div></div></div>after",
+    ],
+  ])("repairs %j exactly like a browser", (input, options, expected) => {
+    const output = sanitize(input, options);
+
+    expect(output).toBe(expected);
+    expect(browserTree(output)).toBe(browserTree(input));
+  });
+
+  it.each([
+    ['<b"x>text</b>', "text"],
+    ['<a class href="/x">l</a>', '<a class href="/x">l</a>'],
+    ['<a class/href="/x">l</a>', '<a class href="/x">l</a>'],
+    ["<a class/>x", "<a class></a>x"],
+    ["<b title.>text</b>", "<b>text</b>"],
+    ['<a href= "/x">l</a>', '<a href="/x">l</a>'],
+    ["<a href=>l</a>", '<a href="">l</a>'],
+    ['<a class=x href="/y">l</a>', '<a class="x" href="/y">l</a>'],
+  ])("tokenizes the attributes in %j", (input, expected) => {
+    expect(sanitize(input)).toBe(expected);
+  });
+
+  it("never emits empty attribute names, even when allowlisted", () => {
+    expect(
+      sanitize("<b a  ><i  /></i>x</b>", policy(["b", "i"], { "*": [""] })),
+    ).toBe("<b><i></i>x</b>");
+  });
+
+  it("drops allowlisted void raw-content elements such as embed", () => {
+    expect(
+      sanitize(
+        '<embed src="/x"><p>ok</p>',
+        policy(["embed", "p"], { embed: ["src"] }),
+      ),
+    ).toBe("<p>ok</p>");
+  });
+});
